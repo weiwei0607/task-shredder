@@ -100,6 +100,16 @@ export async function POST(req: Request) {
     let data;
     try {
         data = JSON.parse(resultText);
+        // 防呆：確保陣列屬性存在 (Fallback mechanism)
+        if (!data.tasks || !Array.isArray(data.tasks)) data.tasks = [];
+        if (!data.summary || !Array.isArray(data.summary)) data.summary = [];
+        if (!data.clarificationQuestions || !Array.isArray(data.clarificationQuestions)) data.clarificationQuestions = [];
+        
+        // 確保 task 裡面的 subtasks 也存在
+        data.tasks = data.tasks.map((t: any) => ({
+            ...t,
+            subtasks: Array.isArray(t.subtasks) ? t.subtasks : []
+        }));
     } catch(e) {
         console.error("JSON Parse Error:", resultText);
         throw new Error("AI did not return valid JSON");
