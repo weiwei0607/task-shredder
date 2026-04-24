@@ -1,0 +1,3 @@
+[submodule "task-shredder-app"]
+	path = task-shredder-app
+	url = https://github.com/weiwei0607/task-shredder-mobile.git
