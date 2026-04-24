@@ -1,50 +1,52 @@
-import { useState, useEffect } from 'react';
+import { useSyncExternalStore, useCallback } from 'react';
 
-/**
- * Custom hook for interacting with Local Storage
- * @param key Local storage key
- * @param initialValue Default value if key is not present in local storage
- */
+function getServerSnapshot<T>(initialValue: T): T {
+  return initialValue;
+}
+
 export function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T | ((val: T) => T)) => void] {
-  // State to store our value
-  // Pass initial state function to useState so logic is only executed once
-  const [storedValue, setStoredValue] = useState<T>(initialValue);
-  
-  // Flag to indicate if we've loaded from local storage yet
-  // We use this to prevent hydration mismatches and multiple reads
-  const [isReady, setIsReady] = useState(false);
+  const getSnapshot = useCallback(() => {
+    if (typeof window === 'undefined') return JSON.stringify(initialValue);
+    const item = window.localStorage.getItem(key);
+    return item ?? JSON.stringify(initialValue);
+  }, [key, initialValue]);
 
-  useEffect(() => {
-    try {
-      // Get from local storage by key
-      const item = window.localStorage.getItem(key);
-      if (item) {
-        setStoredValue(JSON.parse(item));
-      }
-    } catch (error) {
-      // If error also return initialValue
-      console.warn(`Error reading localStorage key "${key}":`, error);
-    }
-    setIsReady(true);
+  const subscribe = useCallback((callback: () => void) => {
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === key) callback();
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
   }, [key]);
 
-  // Return a wrapped version of useState's setter function that ...
-  // ... persists the new value to localStorage.
-  const setValue = (value: T | ((val: T) => T)) => {
-    try {
-      // Allow value to be a function so we have same API as useState
-      const valueToStore = value instanceof Function ? value(storedValue) : value;
-      // Save state
-      setStoredValue(valueToStore);
-      // Save to local storage
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem(key, JSON.stringify(valueToStore));
+  const storedString = useSyncExternalStore(
+    subscribe,
+    getSnapshot,
+    () => JSON.stringify(initialValue)
+  );
+
+  let storedValue: T;
+  try {
+    storedValue = JSON.parse(storedString);
+  } catch {
+    storedValue = initialValue;
+  }
+
+  const setValue = useCallback((value: T | ((val: T) => T)) => {
+    const current = (() => {
+      const item = window.localStorage.getItem(key);
+      if (!item) return initialValue;
+      try {
+        return JSON.parse(item);
+      } catch {
+        return initialValue;
       }
-    } catch (error) {
-      // A more advanced implementation would handle the error case
-      console.warn(`Error setting localStorage key "${key}":`, error);
-    }
-  };
+    })();
+
+    const valueToStore = value instanceof Function ? value(current) : value;
+    window.localStorage.setItem(key, JSON.stringify(valueToStore));
+    window.dispatchEvent(new StorageEvent('storage', { key }));
+  }, [key, initialValue]);
 
   return [storedValue, setValue];
 }
