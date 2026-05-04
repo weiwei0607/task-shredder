@@ -11,6 +11,17 @@ export interface Task {
   daysLeft: number;
   isUrgent: boolean;
   subtasks: Subtask[];
+  completed?: boolean;
+  completedAt?: string; // ISO timestamp
+}
+
+export interface BrainDumpSession {
+  id: string;
+  text: string;
+  tasks: Task[];
+  summary: string[];
+  mindmap: string;
+  createdAt: string;
 }
 
 export interface StickyNote {
@@ -28,7 +39,7 @@ export interface ClarificationQuestion {
 }
 
 export type BreakdownMode = 'auto' | 'none' | 'ask';
-export type ActiveTab = 'todo' | 'summary' | 'mindmap';
+export type ActiveTab = 'todo' | 'summary' | 'mindmap' | 'history';
 
 export interface AnalyzeResponse {
   tasks?: Task[];

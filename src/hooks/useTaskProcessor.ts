@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
 import { useLocalStorage } from './useLocalStorage';
 import { formatTasks, createStickyNote, updateStickyNoteDeadline } from '@/lib/utils';
-import type { Task, StickyNote, ClarificationQuestion, BreakdownMode, ActiveTab } from '@/types';
+import type { Task, StickyNote, ClarificationQuestion, BreakdownMode, ActiveTab, BrainDumpSession } from '@/types';
 
 interface UseTaskProcessorReturn {
   tasks: Task[];
@@ -35,6 +35,11 @@ interface UseTaskProcessorReturn {
   handleProcess: () => Promise<void>;
   submitClarificationAnswers: () => Promise<void>;
   resetAll: () => void;
+  sessions: BrainDumpSession[];
+  setSessions: (val: BrainDumpSession[] | ((prev: BrainDumpSession[]) => BrainDumpSession[])) => void;
+  toggleTaskCompleted: (taskId: string) => void;
+  completionRate: number;
+  duplicateSuggestions: string[];
 }
 
 export function useTaskProcessor(): UseTaskProcessorReturn {
@@ -45,6 +50,7 @@ export function useTaskProcessor(): UseTaskProcessorReturn {
   const [activeTab, setActiveTab] = useLocalStorage<ActiveTab>('ts_activeTab', 'todo');
   const [breakdownMode, setBreakdownMode] = useLocalStorage<BreakdownMode>('ts_breakdownMode', 'auto');
   const [isDone, setIsDone] = useLocalStorage<boolean>('ts_isDone', false);
+  const [sessions, setSessions] = useLocalStorage<BrainDumpSession[]>('ts_sessions', []);
 
   const [inputText, setInputText] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -68,6 +74,36 @@ export function useTaskProcessor(): UseTaskProcessorReturn {
     resetSession();
   }, [setTasks, setStickyNotes, setSummary, setMindmap, setIsDone, resetSession]);
 
+  // Compute completion rate across all tasks
+  const allTasks = tasks;
+  const totalSubtasks = allTasks.reduce((sum, t) => sum + t.subtasks.length, 0);
+  const completedSubtasks = allTasks.reduce((sum, t) => sum + t.subtasks.filter(s => s.completed).length, 0);
+  const completionRate = totalSubtasks === 0 ? 0 : Math.round((completedSubtasks / totalSubtasks) * 100);
+
+  // Detect duplicate tasks (suggest habit tracking)
+  const duplicateSuggestions = useMemo(() => {
+    const titleCounts: Record<string, number> = {};
+    sessions.forEach(s => {
+      s.tasks.forEach(t => {
+        const key = t.title.toLowerCase().trim();
+        titleCounts[key] = (titleCounts[key] || 0) + 1;
+      });
+    });
+    return Object.entries(titleCounts)
+      .filter(([_, count]) => count >= 3)
+      .map(([title]) => title);
+  }, [sessions]);
+
+  const toggleTaskCompleted = useCallback((taskId: string) => {
+    setTasks((prev) =>
+      prev.map((t) =>
+        t.id === taskId
+          ? { ...t, completed: !t.completed, completedAt: !t.completed ? new Date().toISOString() : undefined }
+          : t
+      )
+    );
+  }, [setTasks]);
+
   const addStickyNote = useCallback((text: string, deadline?: string) => {
     const note = createStickyNote(text, deadline);
     setStickyNotes((prev) => [note, ...prev]);
@@ -85,7 +121,18 @@ export function useTaskProcessor(): UseTaskProcessorReturn {
 
   const processResponse = useCallback((data: any) => {
     if (data.tasks && Array.isArray(data.tasks)) {
-      setTasks(formatTasks(data.tasks));
+      const formatted = formatTasks(data.tasks);
+      setTasks(formatted);
+      // Save to history
+      const session: BrainDumpSession = {
+        id: crypto.randomUUID(),
+        text: inputText,
+        tasks: formatted,
+        summary: data.summary || [],
+        mindmap: data.mindmap || '',
+        createdAt: new Date().toISOString(),
+      };
+      setSessions((prev) => [session, ...prev].slice(0, 50));
     }
     if (data.summary && Array.isArray(data.summary)) {
       setSummary(data.summary);
@@ -93,7 +140,7 @@ export function useTaskProcessor(): UseTaskProcessorReturn {
     if (data.mindmap) {
       setMindmap(data.mindmap);
     }
-  }, [setTasks, setSummary, setMindmap]);
+  }, [setTasks, setSummary, setMindmap, setSessions, inputText]);
 
   const handleProcess = useCallback(async () => {
     if (!inputText.trim()) return;
@@ -217,5 +264,10 @@ export function useTaskProcessor(): UseTaskProcessorReturn {
     handleProcess,
     submitClarificationAnswers,
     resetAll,
+    sessions,
+    setSessions,
+    toggleTaskCompleted,
+    completionRate,
+    duplicateSuggestions,
   };
 }

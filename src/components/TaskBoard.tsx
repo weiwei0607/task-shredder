@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ListTodo, Lightbulb, Network, CheckCircle2, Clock } from 'lucide-react';
+import { ListTodo, Lightbulb, Network, CheckCircle2, Clock, History, TrendingUp, Repeat } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { toggleSubtaskInTasks, updateTaskDeadline } from '@/lib/utils';
 import type { Task, ActiveTab } from '@/types';
@@ -16,6 +16,10 @@ interface TaskBoardProps {
   mindmap: string;
   activeTab: ActiveTab;
   setActiveTab: (val: ActiveTab) => void;
+  toggleTaskCompleted?: (taskId: string) => void;
+  completionRate?: number;
+  sessions?: import('@/types').BrainDumpSession[];
+  duplicateSuggestions?: string[];
 }
 
 export default function TaskBoard({
@@ -25,9 +29,17 @@ export default function TaskBoard({
   mindmap,
   activeTab,
   setActiveTab,
+  toggleTaskCompleted,
+  completionRate = 0,
+  sessions = [],
+  duplicateSuggestions = [],
 }: TaskBoardProps) {
   const handleToggleSubtask = (taskId: string, subtaskId: string) => {
     setTasks((prev) => toggleSubtaskInTasks(prev, taskId, subtaskId));
+  };
+
+  const handleToggleTask = (taskId: string) => {
+    if (toggleTaskCompleted) toggleTaskCompleted(taskId);
   };
 
   const handleDeadlineChange = (taskId: string, newDate: string) => {
@@ -38,6 +50,7 @@ export default function TaskBoard({
     { key: 'todo', label: '執行碎片', icon: <ListTodo size={16} /> },
     { key: 'summary', label: '30秒重點', icon: <Lightbulb size={16} /> },
     { key: 'mindmap', label: '視覺心智圖', icon: <Network size={16} /> },
+    { key: 'history', label: '歷史紀錄', icon: <History size={16} /> },
   ];
 
   return (
@@ -77,6 +90,42 @@ export default function TaskBoard({
               transition={{ duration: 0.2 }}
               className="space-y-6"
             >
+              {/* Completion Rate Header */}
+              {tasks.length > 0 && (
+                <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2 text-sm font-bold text-zinc-700">
+                      <TrendingUp size={16} />
+                      整體完成率
+                    </div>
+                    <span className="text-lg font-black text-black">{completionRate}%</span>
+                  </div>
+                  <div className="h-2.5 bg-zinc-200 rounded-full overflow-hidden">
+                    <motion.div
+                      className={`h-full rounded-full ${completionRate === 100 ? 'bg-green-500' : 'bg-black'}`}
+                      initial={{ width: 0 }}
+                      animate={{ width: `${completionRate}%` }}
+                      transition={{ duration: 0.5 }}
+                    />
+                  </div>
+                </div>
+              )}
+              {/* Duplicate Suggestions */}
+              {duplicateSuggestions.length > 0 && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                  <div className="flex items-center gap-2 text-sm font-bold text-amber-800 mb-2">
+                    <Repeat size={16} />
+                    重複任務偵測 — 建議轉為習慣追蹤
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {duplicateSuggestions.map((title) => (
+                      <span key={title} className="px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-medium">
+                        「{title}」出現 3+ 次
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
               {tasks.map((task) => {
                 const total = task.subtasks.length;
                 const completed = task.subtasks.filter((s) => s.completed).length;
@@ -95,9 +144,18 @@ export default function TaskBoard({
                       <div className="min-w-0 flex-1">
                         <h3
                           className={`font-bold text-lg flex items-center gap-2 transition-all duration-300 ${
-                            isAllDone ? 'text-green-700 line-through opacity-70' : 'text-zinc-900'
+                            isAllDone || task.completed ? 'text-green-700 line-through opacity-70' : 'text-zinc-900'
                           }`}
                         >
+                          {toggleTaskCompleted && (
+                            <input
+                              type="checkbox"
+                              checked={!!task.completed}
+                              onChange={() => handleToggleTask(task.id)}
+                              className="w-5 h-5 accent-black cursor-pointer"
+                              title="標記整個任務完成"
+                            />
+                          )}
                           {isAllDone && <CheckCircle2 size={20} className="text-green-500 flex-shrink-0" />}
                           <span className="break-words">{task.title}</span>
                         </h3>
@@ -233,6 +291,51 @@ export default function TaskBoard({
                   <p className="text-zinc-400">沒有生成心智圖資料。</p>
                 )}
               </div>
+            </motion.div>
+          )}
+
+          {/* History Tab */}
+          {activeTab === 'history' && (
+            <motion.div
+              key="history"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2 }}
+              className="space-y-4"
+            >
+              <h3 className="font-bold text-lg text-zinc-900 border-b border-zinc-100 pb-2 mb-4">
+                📜 Brain Dump 歷史紀錄
+              </h3>
+              {sessions.length === 0 ? (
+                <p className="text-zinc-400">尚無歷史紀錄。</p>
+              ) : (
+                <div className="space-y-4 max-h-[500px] overflow-y-auto">
+                  {sessions.map((session) => (
+                    <div key={session.id} className="border border-zinc-200 rounded-xl p-4 bg-zinc-50/50">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-bold text-zinc-400">
+                          {new Date(session.createdAt).toLocaleString('zh-TW')}
+                        </span>
+                        <span className="text-xs font-bold text-zinc-500 bg-zinc-100 px-2 py-0.5 rounded">
+                          {session.tasks.length} 個任務
+                        </span>
+                      </div>
+                      <p className="text-sm text-zinc-700 line-clamp-2 mb-2">{session.text}</p>
+                      <div className="flex flex-wrap gap-1">
+                        {session.tasks.slice(0, 5).map((t) => (
+                          <span key={t.id} className="text-[10px] bg-white border border-zinc-200 px-2 py-0.5 rounded text-zinc-600">
+                            {t.title}
+                          </span>
+                        ))}
+                        {session.tasks.length > 5 && (
+                          <span className="text-[10px] text-zinc-400">+{session.tasks.length - 5} more</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>

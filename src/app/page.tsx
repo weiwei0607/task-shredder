@@ -52,6 +52,10 @@ function TaskShredderApp() {
     handleProcess,
     submitClarificationAnswers,
     resetAll,
+    toggleTaskCompleted,
+    completionRate,
+    sessions,
+    duplicateSuggestions,
   } = useTaskProcessor();
 
   const [isSyncing, setIsSyncing] = useState(false);
@@ -238,6 +242,10 @@ function TaskShredderApp() {
                 mindmap={mindmap}
                 activeTab={activeTab}
                 setActiveTab={setActiveTab}
+                toggleTaskCompleted={toggleTaskCompleted}
+                completionRate={completionRate}
+                sessions={sessions}
+                duplicateSuggestions={duplicateSuggestions}
               />
             )}
           </AnimatePresence>
