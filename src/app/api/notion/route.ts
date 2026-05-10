@@ -16,41 +16,29 @@ export async function POST(req: Request) {
        return NextResponse.json({ error: '無效的任務資料' }, { status: 400 });
     }
 
-    for (const task of tasks) {
-      // 建立主任務作為頁面
+    await Promise.all(tasks.map(async (task: any) => {
       const newPage = await notion.pages.create({
         parent: { database_id: databaseId },
         properties: {
-          Name: {
-            title: [
-              {
-                text: { content: task.title }
-              }
-            ]
-          },
-          Deadline: {
-            date: { start: task.deadline }
-          }
-        }
+          Name: { title: [{ text: { content: task.title } }] },
+          Deadline: { date: { start: task.deadline } },
+        },
       });
-      
-      // 將子任務加為頁面內的待辦事項區塊
-      if (task.subtasks && task.subtasks.length > 0) {
-        const children = task.subtasks.map((sub: any) => ({
-           object: 'block',
-           type: 'to_do',
-           to_do: {
-             rich_text: [{ type: 'text', text: { content: sub.title } }],
-             checked: sub.completed
-           }
-        }));
-        
+
+      if (task.subtasks?.length > 0) {
         await notion.blocks.children.append({
-           block_id: newPage.id,
-           children: children as any
+          block_id: newPage.id,
+          children: task.subtasks.map((sub: any) => ({
+            object: 'block',
+            type: 'to_do',
+            to_do: {
+              rich_text: [{ type: 'text', text: { content: sub.title } }],
+              checked: sub.completed,
+            },
+          })) as any,
         });
       }
-    }
+    }));
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
