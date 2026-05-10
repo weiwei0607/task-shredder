@@ -74,11 +74,11 @@ export function useTaskProcessor(): UseTaskProcessorReturn {
     resetSession();
   }, [setTasks, setStickyNotes, setSummary, setMindmap, setIsDone, resetSession]);
 
-  // Compute completion rate across all tasks
-  const allTasks = tasks;
-  const totalSubtasks = allTasks.reduce((sum, t) => sum + t.subtasks.length, 0);
-  const completedSubtasks = allTasks.reduce((sum, t) => sum + t.subtasks.filter(s => s.completed).length, 0);
-  const completionRate = totalSubtasks === 0 ? 0 : Math.round((completedSubtasks / totalSubtasks) * 100);
+  const completionRate = useMemo(() => {
+    const total = tasks.reduce((sum, t) => sum + t.subtasks.length, 0);
+    const completed = tasks.reduce((sum, t) => sum + t.subtasks.filter(s => s.completed).length, 0);
+    return total === 0 ? 0 : Math.round((completed / total) * 100);
+  }, [tasks]);
 
   // Detect duplicate tasks (suggest habit tracking)
   const duplicateSuggestions = useMemo(() => {

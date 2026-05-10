@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Target } from 'lucide-react';
 import { GoogleOAuthProvider } from '@react-oauth/google';
@@ -61,14 +61,17 @@ function TaskShredderApp() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [isSyncingGoogle, setIsSyncingGoogle] = useState(false);
 
-  const allTasksForExport = [...tasks, ...stickyNotes.map((n) => ({
-    id: n.id,
-    title: n.text,
-    deadline: n.deadline,
-    daysLeft: n.daysLeft,
-    isUrgent: n.isUrgent,
-    subtasks: [] as { id: string; title: string; completed: boolean }[],
-  }))];
+  const allTasksForExport = useMemo(() => [
+    ...tasks,
+    ...stickyNotes.map((n) => ({
+      id: n.id,
+      title: n.text,
+      deadline: n.deadline,
+      daysLeft: n.daysLeft,
+      isUrgent: n.isUrgent,
+      subtasks: [] as { id: string; title: string; completed: boolean }[],
+    })),
+  ], [tasks, stickyNotes]);
 
   const syncToNotion = async () => {
     if (allTasksForExport.length === 0) return;
