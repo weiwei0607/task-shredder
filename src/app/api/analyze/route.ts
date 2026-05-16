@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server';
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
+const MAX_INPUT_LENGTH = 5000;
+
 const getSystemPrompt = (mode: string) => {
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei' }).format(new Date());
   
@@ -83,8 +85,15 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { text, mode = "auto" } = body;
 
-    if (!text) {
+    if (!text || typeof text !== 'string') {
       return NextResponse.json({ error: 'Text is required' }, { status: 400 });
+    }
+
+    if (text.length > MAX_INPUT_LENGTH) {
+      return NextResponse.json(
+        { error: `輸入文字過長，請限制在 ${MAX_INPUT_LENGTH} 字以內` },
+        { status: 400 }
+      );
     }
 
     const response = await ai.models.generateContent({
