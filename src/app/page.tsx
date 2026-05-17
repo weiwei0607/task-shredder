@@ -15,9 +15,7 @@ import ClarificationForm from '../components/ClarificationForm';
 import TaskBoard from '../components/TaskBoard';
 
 export default function Home() {
-  const clientId =
-    process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
-    'c799111991622-m5hecfpoq1m5elkll9qk40a7sivjgn40.apps.googleusercontent.com';
+  const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
 
   return (
     <GoogleOAuthProvider clientId={clientId}>
