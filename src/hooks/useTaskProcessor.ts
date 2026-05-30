@@ -4,7 +4,7 @@ import { useState, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
 import { useLocalStorage } from './useLocalStorage';
 import { formatTasks, createStickyNote, updateStickyNoteDeadline } from '@/lib/utils';
-import type { Task, StickyNote, ClarificationQuestion, BreakdownMode, ActiveTab, BrainDumpSession } from '@/types';
+import type { Task, StickyNote, ClarificationQuestion, BreakdownMode, ActiveTab, BrainDumpSession, AnalyzeResponse } from '@/types';
 
 interface UseTaskProcessorReturn {
   tasks: Task[];
@@ -74,11 +74,12 @@ export function useTaskProcessor(): UseTaskProcessorReturn {
     resetSession();
   }, [setTasks, setStickyNotes, setSummary, setMindmap, setIsDone, resetSession]);
 
-  // Compute completion rate across all tasks
-  const allTasks = tasks;
-  const totalSubtasks = allTasks.reduce((sum, t) => sum + t.subtasks.length, 0);
-  const completedSubtasks = allTasks.reduce((sum, t) => sum + t.subtasks.filter(s => s.completed).length, 0);
-  const completionRate = totalSubtasks === 0 ? 0 : Math.round((completedSubtasks / totalSubtasks) * 100);
+  const completionRate = useMemo(() => {
+    const total = tasks.reduce((sum, t) => sum + t.subtasks.length, 0);
+    if (total === 0) return 0;
+    const completed = tasks.reduce((sum, t) => sum + t.subtasks.filter(s => s.completed).length, 0);
+    return Math.round((completed / total) * 100);
+  }, [tasks]);
 
   // Detect duplicate tasks (suggest habit tracking)
   const duplicateSuggestions = useMemo(() => {
@@ -90,7 +91,7 @@ export function useTaskProcessor(): UseTaskProcessorReturn {
       });
     });
     return Object.entries(titleCounts)
-      .filter(([_, count]) => count >= 3)
+      .filter(([, count]) => count >= 3)
       .map(([title]) => title);
   }, [sessions]);
 
@@ -119,7 +120,7 @@ export function useTaskProcessor(): UseTaskProcessorReturn {
     setStickyNotes((prev) => updateStickyNoteDeadline(prev, id, newDate));
   }, [setStickyNotes]);
 
-  const processResponse = useCallback((data: any) => {
+  const processResponse = useCallback((data: AnalyzeResponse) => {
     if (data.tasks && Array.isArray(data.tasks)) {
       const formatted = formatTasks(data.tasks);
       setTasks(formatted);
@@ -142,29 +143,35 @@ export function useTaskProcessor(): UseTaskProcessorReturn {
     }
   }, [setTasks, setSummary, setMindmap, setSessions, inputText]);
 
+  const callAnalyzeAPI = useCallback(async (text: string, mode: string): Promise<AnalyzeResponse> => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+    try {
+      const response = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, mode }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      if (!response.ok) throw new Error('AI 解析失敗');
+      return await response.json();
+    } catch (error) {
+      clearTimeout(timeoutId);
+      throw error;
+    }
+  }, []);
+
   const handleProcess = useCallback(async () => {
     if (!inputText.trim()) return;
     setIsProcessing(true);
     resetSession();
 
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000);
+      const data = await callAnalyzeAPI(inputText, breakdownMode);
 
-      const response = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: inputText, mode: breakdownMode }),
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
-
-      if (!response.ok) throw new Error('AI 解析失敗');
-
-      const data = await response.json();
-
-      if (data.clarificationQuestions?.length > 0) {
-        setClarificationQuestions(data.clarificationQuestions);
+      if ((data.clarificationQuestions?.length ?? 0) > 0) {
+        setClarificationQuestions(data.clarificationQuestions!);
         setIsDone(false);
         return;
       }
@@ -173,8 +180,8 @@ export function useTaskProcessor(): UseTaskProcessorReturn {
       setIsDone(true);
       setActiveTab('todo');
       toast.success('AI 解析完成！');
-    } catch (error: any) {
-      if (error.name === 'AbortError') {
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name === 'AbortError') {
         toast.error('請求逾時，請稍後再試。');
       } else {
         console.error(error);
@@ -183,7 +190,7 @@ export function useTaskProcessor(): UseTaskProcessorReturn {
     } finally {
       setIsProcessing(false);
     }
-  }, [inputText, breakdownMode, resetSession, processResponse, setIsDone, setActiveTab]);
+  }, [inputText, breakdownMode, resetSession, processResponse, setIsDone, setActiveTab, callAnalyzeAPI]);
 
   const submitClarificationAnswers = useCallback(async () => {
     setIsProcessing(true);
@@ -204,27 +211,14 @@ export function useTaskProcessor(): UseTaskProcessorReturn {
     setClarificationQuestions([]);
 
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000);
-
-      const response = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: finalPrompt, mode: 'auto' }),
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
-
-      if (!response.ok) throw new Error('AI 解析失敗');
-
-      const data = await response.json();
+      const data = await callAnalyzeAPI(finalPrompt, 'auto');
       processResponse(data);
       setIsDone(true);
       setActiveTab('todo');
       setBreakdownMode('auto');
       toast.success('根據釐清資訊，AI 重組片段完成！');
-    } catch (error: any) {
-      if (error.name === 'AbortError') {
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name === 'AbortError') {
         toast.error('請求逾時，請稍後再試。');
       } else {
         console.error(error);
@@ -233,7 +227,7 @@ export function useTaskProcessor(): UseTaskProcessorReturn {
     } finally {
       setIsProcessing(false);
     }
-  }, [clarificationQuestions, selectedAnswers, customAnswers, inputText, processResponse, setIsDone, setActiveTab, setBreakdownMode]);
+  }, [clarificationQuestions, selectedAnswers, customAnswers, inputText, processResponse, setIsDone, setActiveTab, setBreakdownMode, callAnalyzeAPI]);
 
   return {
     tasks,

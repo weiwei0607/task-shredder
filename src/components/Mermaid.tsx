@@ -40,7 +40,17 @@ export default function Mermaid({ chart }: MermaidProps) {
       } catch (error) {
         console.error('Mermaid Rendering Error:', error);
         if (!cancelled && containerRef.current) {
-          containerRef.current.innerHTML = `<div class="text-red-500 p-4 border border-red-200 rounded-lg bg-red-50">心智圖渲染失敗，可能是 AI 生成的格式有誤。</div>`;
+          const pre = document.createElement('pre');
+          pre.className = 'text-xs text-slate-600 p-4 border border-amber-200 rounded-lg bg-amber-50 overflow-x-auto w-full text-left whitespace-pre-wrap';
+          pre.textContent = chart;
+          const label = document.createElement('p');
+          label.className = 'text-amber-700 text-sm mb-2 font-medium';
+          label.textContent = '心智圖渲染失敗，顯示原始內容：';
+          const wrapper = document.createElement('div');
+          wrapper.appendChild(label);
+          wrapper.appendChild(pre);
+          containerRef.current.innerHTML = '';
+          containerRef.current.appendChild(wrapper);
         }
       }
     };
