@@ -18,7 +18,7 @@ export default function Mermaid({ chart }: MermaidProps) {
       mermaid.initialize({
         startOnLoad: false,
         theme: 'default',
-        securityLevel: 'loose',
+        securityLevel: 'antiscript',
         fontFamily: 'inherit',
       });
       isMermaidInitialized = true;
