@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import type { Task, Subtask } from '@/types';
 
 const headers = (accessToken: string) => ({
   Authorization: `Bearer ${accessToken}`,
@@ -22,8 +23,7 @@ export async function POST(req: Request) {
     if (!createdListRes.ok) throw new Error('無法建立 Google Task 清單');
     const taskList = await createdListRes.json();
 
-    // Process all tasks in parallel
-    await Promise.all(tasks.map(async (task: any) => {
+    await Promise.all((tasks as Task[]).map(async (task) => {
       const dueRFC3339 = `${task.deadline}T23:59:59+08:00`;
 
       const [calRes, parentTaskRes] = await Promise.all([
@@ -32,7 +32,7 @@ export async function POST(req: Request) {
           headers: headers(accessToken),
           body: JSON.stringify({
             summary: `🔥 [死線] ${task.title}`,
-            description: task.subtasks?.map((s: any) => `[ ] ${s.title}`).join('\n') || '',
+            description: task.subtasks?.map((s: Subtask) => `[ ] ${s.title}`).join('\n') || '',
             start: { date: task.deadline },
             end: { date: task.deadline },
           }),
@@ -49,7 +49,7 @@ export async function POST(req: Request) {
 
       if (task.subtasks?.length > 0) {
         await Promise.all(
-          task.subtasks.map((sub: any) =>
+          task.subtasks.map((sub: Subtask) =>
             fetch(`https://tasks.googleapis.com/tasks/v1/lists/${taskList.id}/tasks`, {
               method: 'POST',
               headers: headers(accessToken),
@@ -61,8 +61,9 @@ export async function POST(req: Request) {
     }));
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Google API Error:', error);
-    return NextResponse.json({ error: error.message || 'Google 同步失敗' }, { status: 500 });
+    const msg = error instanceof Error ? error.message : 'Google 同步失敗';
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

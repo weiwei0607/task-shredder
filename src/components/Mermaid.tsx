@@ -7,6 +7,15 @@ interface MermaidProps {
   chart: string;
 }
 
+// Lightweight SVG sanitizer: strips event handlers and dangerous URLs
+function sanitizeSvg(svg: string): string {
+  return svg
+    .replace(/\s+on\w+=["'][^"']*["']/gi, '')
+    .replace(/\s+on\w+=[^\s>]+/gi, '')
+    .replace(/href=["']\s*javascript:/gi, 'href="blocked:')
+    .replace(/xlink:href=["']\s*javascript:/gi, 'xlink:href="blocked:');
+}
+
 let isMermaidInitialized = false;
 
 export default function Mermaid({ chart }: MermaidProps) {
@@ -35,7 +44,7 @@ export default function Mermaid({ chart }: MermaidProps) {
         const id = `mermaid-${uniqueId}-${Math.random().toString(36).substring(2, 9)}`;
         const { svg } = await mermaid.render(id, chart);
         if (!cancelled && containerRef.current) {
-          containerRef.current.innerHTML = svg;
+          containerRef.current.innerHTML = sanitizeSvg(svg);
         }
       } catch (error) {
         console.error('Mermaid Rendering Error:', error);

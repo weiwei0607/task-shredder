@@ -46,9 +46,9 @@ export default function Header({
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
         toast.success('🎉 成功同步至 Google 日曆與 Google Tasks！');
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error(err);
-        toast.error('Google 同步失敗：' + err.message);
+        toast.error('Google 同步失敗：' + (err instanceof Error ? err.message : String(err)));
       } finally {
         setIsSyncingGoogle(false);
       }

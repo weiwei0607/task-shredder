@@ -6,6 +6,28 @@ import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import type { BreakdownMode } from '@/types';
 
+interface SpeechRecognitionEvent {
+  results: { length: number; [i: number]: { [j: number]: { transcript: string } } };
+}
+interface SpeechRecognitionErrorEvent {
+  error: string;
+}
+interface SpeechRecognitionInstance {
+  lang: string;
+  interimResults: boolean;
+  continuous: boolean;
+  onstart: (() => void) | null;
+  onresult: ((e: SpeechRecognitionEvent) => void) | null;
+  onerror: ((e: SpeechRecognitionErrorEvent) => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+}
+interface WindowWithSpeech extends Window {
+  SpeechRecognition?: new () => SpeechRecognitionInstance;
+  webkitSpeechRecognition?: new () => SpeechRecognitionInstance;
+}
+
 interface BrainDumpPanelProps {
   inputText: string;
   setInputText: (val: string) => void;
@@ -24,21 +46,21 @@ export default function BrainDumpPanel({
   handleProcess,
 }: BrainDumpPanelProps) {
   const [isRecording, setIsRecording] = useState(false);
-  const recognitionRef = useRef<any>(null);
+  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    const SpeechRecognition =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (SpeechRecognition) {
-      recognitionRef.current = new SpeechRecognition();
+    const w = window as WindowWithSpeech;
+    const SpeechRecognitionCtor = w.SpeechRecognition || w.webkitSpeechRecognition;
+    if (SpeechRecognitionCtor) {
+      recognitionRef.current = new SpeechRecognitionCtor();
       recognitionRef.current.lang = 'zh-TW';
       recognitionRef.current.interimResults = true;
       recognitionRef.current.continuous = true;
 
       recognitionRef.current.onstart = () => setIsRecording(true);
 
-      recognitionRef.current.onresult = (event: any) => {
+      recognitionRef.current.onresult = (event: SpeechRecognitionEvent) => {
         let currentTranscript = '';
         for (let i = 0; i < event.results.length; ++i) {
           currentTranscript += event.results[i][0].transcript;
@@ -46,7 +68,7 @@ export default function BrainDumpPanel({
         setInputText(currentTranscript);
       };
 
-      recognitionRef.current.onerror = (event: any) => {
+      recognitionRef.current.onerror = (event: SpeechRecognitionErrorEvent) => {
         console.error('Speech recognition error', event.error);
         setIsRecording(false);
       };

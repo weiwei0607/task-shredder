@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { StickyNote, Plus, Trash2, Clock, CheckCircle2, Keyboard } from 'lucide-react';
+import { StickyNote, Plus, Clock, CheckCircle2, Keyboard } from 'lucide-react';
 import { toast } from 'sonner';
 import type { StickyNote as StickyNoteType } from '@/types';
 

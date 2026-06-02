@@ -15,9 +15,18 @@ import ClarificationForm from '../components/ClarificationForm';
 import TaskBoard from '../components/TaskBoard';
 
 export default function Home() {
-  const clientId =
-    process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
-    'c799111991622-m5hecfpoq1m5elkll9qk40a7sivjgn40.apps.googleusercontent.com';
+  const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+
+  if (!clientId) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white">
+        <div className="text-center space-y-4">
+          <h1 className="text-xl font-bold">設定錯誤</h1>
+          <p className="text-slate-400">缺少環境變數 NEXT_PUBLIC_GOOGLE_CLIENT_ID</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <GoogleOAuthProvider clientId={clientId}>
@@ -91,9 +100,9 @@ function TaskShredderApp() {
       } else {
         toast.success('🎉 成功同步至 Notion！');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      toast.error('Notion 同步失敗：' + err.message);
+      toast.error('Notion 同步失敗：' + (err instanceof Error ? err.message : String(err)));
     } finally {
       setIsSyncing(false);
     }

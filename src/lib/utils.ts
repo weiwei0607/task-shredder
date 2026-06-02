@@ -1,6 +1,6 @@
 import { differenceInCalendarDays, parseISO, format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
-import type { Task, Subtask, StickyNote } from '@/types';
+import type { Task, StickyNote } from '@/types';
 
 const TIMEZONE = 'Asia/Taipei';
 
@@ -10,11 +10,15 @@ export function getTaipeiToday(): string {
 
 export function calculateDaysLeft(deadline: string): number {
   const today = getTaipeiToday();
-  return differenceInCalendarDays(parseISO(deadline), parseISO(today));
+  // Compare as date-only strings in the same timezone to avoid UTC vs local off-by-one
+  return differenceInCalendarDays(parseISO(deadline + 'T00:00:00'), parseISO(today + 'T00:00:00'));
 }
 
 export function generateId(prefix: 't' | 's' | 'n'): string {
-  return `${prefix}_${Math.random().toString(36).substring(2, 11)}`;
+  const suffix = typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID()
+    : Math.random().toString(36).substring(2, 11) + Date.now().toString(36);
+  return `${prefix}_${suffix}`;
 }
 
 export function createStickyNote(text: string, deadline?: string): StickyNote {
@@ -25,7 +29,7 @@ export function createStickyNote(text: string, deadline?: string): StickyNote {
     text: text.trim(),
     deadline: dl,
     daysLeft,
-    isUrgent: daysLeft <= 2 && daysLeft >= 0,
+    isUrgent: daysLeft <= 2,
     createdAt: Date.now(),
   };
 }
@@ -39,7 +43,7 @@ export function updateStickyNoteDeadline(notes: StickyNote[], noteId: string, ne
   );
 }
 
-export function formatTasks(rawTasks: any[]): Task[] {
+export function formatTasks(rawTasks: Partial<Task>[]): Task[] {
   return rawTasks.map((task) => {
     const deadline = task.deadline || getTaipeiToday();
     const daysLeft = typeof task.daysLeft === 'number' ? task.daysLeft : calculateDaysLeft(deadline);
@@ -49,7 +53,7 @@ export function formatTasks(rawTasks: any[]): Task[] {
       deadline,
       daysLeft,
       isUrgent: task.isUrgent ?? (daysLeft <= 2 && daysLeft >= 0),
-      subtasks: (task.subtasks || []).map((sub: any) => ({
+      subtasks: (task.subtasks || []).map((sub) => ({
         id: sub.id || generateId('s'),
         title: sub.title || '未命名子任務',
         completed: sub.completed ?? false,

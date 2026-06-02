@@ -3,9 +3,33 @@ import { NextResponse } from 'next/server';
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-const getSystemPrompt = (mode: string) => {
+// Simple in-memory rate limiter: max 10 requests per IP per minute
+const rateLimitMap = new Map<string, number[]>();
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_MAX = 10;
+
+function isRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const timestamps = rateLimitMap.get(ip) ?? [];
+  const valid = timestamps.filter(t => now - t < RATE_LIMIT_WINDOW_MS);
+  rateLimitMap.set(ip, valid);
+  if (valid.length >= RATE_LIMIT_MAX) return true;
+  valid.push(now);
+  return false;
+}
+
+function getClientIP(req: Request): string {
+  return req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+    ?? req.headers.get('x-real-ip')
+    ?? 'unknown';
+}
+
+const VALID_MODES = ['none', 'ask', 'auto'] as const;
+type Mode = typeof VALID_MODES[number];
+
+const getSystemPrompt = (mode: Mode) => {
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei' }).format(new Date());
-  
+
   let modeInstruction = "";
   let jsonFormat = "";
 
@@ -42,7 +66,7 @@ const getSystemPrompt = (mode: string) => {
   ]
 }`;
   } else {
-    // 預設的 auto 模式
+    // auto
     modeInstruction = "你的任務是「無情地將巨大任務切碎」，讓任務看起來極度好執行。子任務的拆解必須「符合真實人類的執行邏輯」，要具體且有實質進展。例如「規劃旅行」應該是「列出餐廳清單」、「確認公休日與訂位」等能真正推進任務的合理步驟。每個步驟字數適中（10-25字），讓人一眼看懂。";
     jsonFormat = `
 {
@@ -62,7 +86,7 @@ const getSystemPrompt = (mode: string) => {
   "mindmap": "mindmap\\n  root((核心目標))\\n    分支1\\n      子分支"
 }`;
   }
-  
+
   return `
 你是一位「拖延症終結教練」。使用者的輸入會是一段混亂的文字（可能是開會紀錄、待辦事項、抱怨等）。
 今天是 ${today}。
@@ -80,18 +104,29 @@ ${jsonFormat}
 
 export async function POST(req: Request) {
   try {
+    const ip = getClientIP(req);
+    if (isRateLimited(ip)) {
+      return NextResponse.json({ error: 'Rate limit exceeded. Max 10 requests per minute.' }, { status: 429 });
+    }
+
     const body = await req.json();
     const { text, mode = "auto" } = body;
 
-    if (!text) {
+    if (!text || typeof text !== 'string') {
       return NextResponse.json({ error: 'Text is required' }, { status: 400 });
+    }
+    if (text.length > 10000) {
+      return NextResponse.json({ error: 'Text too long (max 10,000 characters)' }, { status: 400 });
+    }
+    if (!VALID_MODES.includes(mode)) {
+      return NextResponse.json({ error: 'Invalid mode. Must be one of: none, ask, auto' }, { status: 400 });
     }
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-lite',
       contents: text,
       config: {
-        systemInstruction: getSystemPrompt(mode),
+        systemInstruction: getSystemPrompt(mode as Mode),
         responseMimeType: "application/json",
       }
     });
@@ -100,24 +135,23 @@ export async function POST(req: Request) {
     let data;
     try {
         data = JSON.parse(resultText);
-        // 防呆：確保陣列屬性存在 (Fallback mechanism)
         if (!data.tasks || !Array.isArray(data.tasks)) data.tasks = [];
         if (!data.summary || !Array.isArray(data.summary)) data.summary = [];
         if (!data.clarificationQuestions || !Array.isArray(data.clarificationQuestions)) data.clarificationQuestions = [];
-        
-        // 確保 task 裡面的 subtasks 也存在
-        data.tasks = data.tasks.map((t: any) => ({
+
+        data.tasks = data.tasks.map((t: Record<string, unknown>) => ({
             ...t,
             subtasks: Array.isArray(t.subtasks) ? t.subtasks : []
         }));
-    } catch(e) {
+    } catch {
         console.error("JSON Parse Error:", resultText);
-        throw new Error("AI did not return valid JSON");
+        return NextResponse.json({ error: 'AI did not return valid JSON' }, { status: 502 });
     }
 
     return NextResponse.json(data);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('API Error:', error);
-    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
+    const msg = error instanceof Error ? error.message : 'Internal Server Error';
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

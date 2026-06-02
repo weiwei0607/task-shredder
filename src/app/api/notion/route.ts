@@ -1,5 +1,6 @@
 import { Client } from '@notionhq/client';
 import { NextResponse } from 'next/server';
+import type { Task, Subtask } from '@/types';
 
 const notion = new Client({ auth: process.env.NOTION_TOKEN });
 
@@ -16,7 +17,7 @@ export async function POST(req: Request) {
        return NextResponse.json({ error: '無效的任務資料' }, { status: 400 });
     }
 
-    await Promise.all(tasks.map(async (task: any) => {
+    await Promise.all((tasks as Task[]).map(async (task) => {
       const newPage = await notion.pages.create({
         parent: { database_id: databaseId },
         properties: {
@@ -28,21 +29,23 @@ export async function POST(req: Request) {
       if (task.subtasks?.length > 0) {
         await notion.blocks.children.append({
           block_id: newPage.id,
-          children: task.subtasks.map((sub: any) => ({
+          children: task.subtasks.map((sub: Subtask) => ({
             object: 'block',
             type: 'to_do',
             to_do: {
               rich_text: [{ type: 'text', text: { content: sub.title } }],
               checked: sub.completed,
             },
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
           })) as any,
         });
       }
     }));
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Notion API Error:', error);
-    return NextResponse.json({ error: error.message || 'Notion 同步失敗' }, { status: 500 });
+    const msg = error instanceof Error ? error.message : 'Notion 同步失敗';
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
