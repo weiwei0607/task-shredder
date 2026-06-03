@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Target } from 'lucide-react';
+import { Target, Loader2, RefreshCw, AlertCircle } from 'lucide-react';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { toast } from 'sonner';
 
@@ -16,26 +16,22 @@ import TaskBoard from '../components/TaskBoard';
 
 export default function Home() {
   const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+  const hasGoogle = !!clientId;
+
+  const app = <TaskShredderApp hasGoogle={hasGoogle} />;
 
   if (!clientId) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white">
-        <div className="text-center space-y-4">
-          <h1 className="text-xl font-bold">設定錯誤</h1>
-          <p className="text-slate-400">缺少環境變數 NEXT_PUBLIC_GOOGLE_CLIENT_ID</p>
-        </div>
-      </div>
-    );
+    return app;
   }
 
   return (
     <GoogleOAuthProvider clientId={clientId}>
-      <TaskShredderApp />
+      {app}
     </GoogleOAuthProvider>
   );
 }
 
-function TaskShredderApp() {
+function TaskShredderApp({ hasGoogle }: { hasGoogle: boolean }) {
   const {
     tasks,
     setTasks,
@@ -53,6 +49,7 @@ function TaskShredderApp() {
     inputText,
     setInputText,
     isProcessing,
+    processingStep,
     clarificationQuestions,
     selectedAnswers,
     setSelectedAnswers,
@@ -65,10 +62,23 @@ function TaskShredderApp() {
     completionRate,
     sessions,
     duplicateSuggestions,
+    updateTaskTitle,
+    updateSubtaskTitle,
+    deleteTask,
+    addSubtask,
+    loadSession,
+    setSessions,
   } = useTaskProcessor();
 
   const [isSyncing, setIsSyncing] = useState(false);
   const [isSyncingGoogle, setIsSyncingGoogle] = useState(false);
+  const [notionError, setNotionError] = useState<string | null>(null);
+
+  const PROCESSING_STEP_LABELS: Record<string, string> = {
+    analyzing: '正在分析你的 Brain Dump...',
+    'breaking-down': '正在將大任務切碎成可執行碎片...',
+    syncing: '正在同步至 Notion...',
+  };
 
   const allTasksForExport = [...tasks, ...stickyNotes.map((n) => ({
     id: n.id,
@@ -82,6 +92,7 @@ function TaskShredderApp() {
   const syncToNotion = async () => {
     if (allTasksForExport.length === 0) return;
     setIsSyncing(true);
+    setNotionError(null);
     try {
       const res = await fetch('/api/notion', {
         method: 'POST',
@@ -94,6 +105,7 @@ function TaskShredderApp() {
           toast.error(
             '尚未設定 NOTION_TODO_DB_ID 環境變數。請在 .env.local 中設定 Notion 待辦資料庫的 ID！'
           );
+          setNotionError('尚未設定 NOTION_TODO_DB_ID 環境變數');
         } else {
           throw new Error(data.error);
         }
@@ -102,7 +114,9 @@ function TaskShredderApp() {
       }
     } catch (err: unknown) {
       console.error(err);
-      toast.error('Notion 同步失敗：' + (err instanceof Error ? err.message : String(err)));
+      const message = err instanceof Error ? err.message : String(err);
+      toast.error('Notion 同步失敗：' + message);
+      setNotionError(message);
     } finally {
       setIsSyncing(false);
     }
@@ -161,7 +175,40 @@ function TaskShredderApp() {
         setIsSyncingGoogle={setIsSyncingGoogle}
         isSyncingGoogle={isSyncingGoogle}
         onReset={resetAll}
+        hasGoogle={hasGoogle}
       />
+
+      {/* Notion Sync Error Banner */}
+      <AnimatePresence>
+        {notionError && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="max-w-5xl mx-auto mt-4 px-6"
+          >
+            <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <AlertCircle size={20} className="text-red-500 shrink-0" />
+                <p className="text-sm text-red-700 font-medium truncate">
+                  Notion 同步失敗：{notionError}
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setNotionError(null);
+                  syncToNotion();
+                }}
+                disabled={isSyncing}
+                className="shrink-0 text-sm font-bold text-red-700 hover:bg-red-100 px-3 py-1.5 rounded-md transition-colors flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <RefreshCw size={14} className={isSyncing ? 'animate-spin' : ''} />
+                重試
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <main className="max-w-5xl mx-auto mt-8 px-6 grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Left Column: Brain Dump + Sticky Notes */}
@@ -209,26 +256,50 @@ function TaskShredderApp() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="h-full flex flex-col items-center justify-center space-y-4"
+                className="h-full flex flex-col items-center justify-center space-y-6"
               >
-                <div className="flex gap-2">
-                  {[0, 1, 2].map((i) => (
-                    <motion.div
-                      key={i}
-                      className="w-3 h-3 bg-black rounded-full"
-                      animate={{ y: ['0%', '-100%', '0%'] }}
-                      transition={{
-                        duration: 0.6,
-                        repeat: Infinity,
-                        delay: i * 0.15,
-                        ease: 'easeInOut',
-                      }}
-                    />
-                  ))}
+                {/* Shimmer Skeleton */}
+                <div className="w-full max-w-md space-y-4">
+                  <div className="h-4 bg-zinc-200 rounded animate-pulse w-3/4 mx-auto" />
+                  <div className="space-y-3">
+                    {[0, 1, 2].map((i) => (
+                      <div key={i} className="space-y-2">
+                        <div className="h-3 bg-zinc-200 rounded animate-pulse w-full" />
+                        <div className="h-3 bg-zinc-200 rounded animate-pulse w-5/6" />
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <p className="text-zinc-500 font-medium animate-pulse">
-                  正在拆解任務、建構心智圖...
-                </p>
+
+                {/* Progress Steps */}
+                <div className="flex flex-col items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <Loader2 size={18} className="animate-spin text-zinc-600" />
+                    <span className="text-zinc-700 font-medium">
+                      {processingStep ? PROCESSING_STEP_LABELS[processingStep] : '處理中...'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {(['analyzing', 'breaking-down'] as const).map((step, idx) => (
+                      <React.Fragment key={step}>
+                        <div
+                          className={`w-2.5 h-2.5 rounded-full transition-colors duration-500 ${
+                            processingStep === step ||
+                            (processingStep === 'syncing' && step === 'breaking-down') ||
+                            (processingStep === null && idx === 0)
+                              ? 'bg-black'
+                              : processingStep &&
+                                ['breaking-down', 'syncing'].includes(processingStep) &&
+                                step === 'analyzing'
+                              ? 'bg-green-500'
+                              : 'bg-zinc-300'
+                          }`}
+                        />
+                        {idx === 0 && <div className="w-6 h-0.5 bg-zinc-200 rounded-full" />}
+                      </React.Fragment>
+                    ))}
+                  </div>
+                </div>
               </motion.div>
             )}
 
@@ -255,6 +326,12 @@ function TaskShredderApp() {
                 completionRate={completionRate}
                 sessions={sessions}
                 duplicateSuggestions={duplicateSuggestions}
+                updateTaskTitle={updateTaskTitle}
+                updateSubtaskTitle={updateSubtaskTitle}
+                deleteTask={deleteTask}
+                addSubtask={addSubtask}
+                loadSession={loadSession}
+                setSessions={setSessions}
               />
             )}
           </AnimatePresence>

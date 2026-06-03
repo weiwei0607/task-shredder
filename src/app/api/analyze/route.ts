@@ -122,7 +122,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Invalid mode. Must be one of: none, ask, auto' }, { status: 400 });
     }
 
-    const response = await ai.models.generateContent({
+    const geminiPromise = ai.models.generateContent({
       model: 'gemini-2.5-flash-lite',
       contents: text,
       config: {
@@ -130,6 +130,13 @@ export async function POST(req: Request) {
         responseMimeType: "application/json",
       }
     });
+
+    // Timeout wrapper: 15s for Gemini API
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('Gemini API timeout after 15s')), 15000);
+    });
+
+    const response = await Promise.race([geminiPromise, timeoutPromise]);
 
     const resultText = response.text || '{}';
     let data;
@@ -151,7 +158,15 @@ export async function POST(req: Request) {
     return NextResponse.json(data);
   } catch (error: unknown) {
     console.error('API Error:', error);
-    const msg = error instanceof Error ? error.message : 'Internal Server Error';
-    return NextResponse.json({ error: msg }, { status: 500 });
+    let msg = 'Internal Server Error';
+    let status = 500;
+    if (error instanceof Error) {
+      msg = error.message;
+      if (msg.includes('timeout') || msg.includes('ETIMEDOUT') || msg.includes('ECONNREFUSED')) {
+        msg = 'AI 服務暫時無法連線，請稍後再試。';
+        status = 503;
+      }
+    }
+    return NextResponse.json({ error: msg }, { status });
   }
 }

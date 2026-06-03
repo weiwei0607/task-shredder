@@ -49,6 +49,24 @@ export default function BrainDumpPanel({
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // Auto-save draft to localStorage
+  const DRAFT_KEY = 'ts_braindump_draft';
+  useEffect(() => {
+    const saved = localStorage.getItem(DRAFT_KEY);
+    if (saved && !inputText) {
+      setInputText(saved);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (inputText.trim()) {
+      localStorage.setItem(DRAFT_KEY, inputText);
+    } else {
+      localStorage.removeItem(DRAFT_KEY);
+    }
+  }, [inputText]);
+
   useEffect(() => {
     const w = window as WindowWithSpeech;
     const SpeechRecognitionCtor = w.SpeechRecognition || w.webkitSpeechRecognition;
@@ -97,6 +115,13 @@ export default function BrainDumpPanel({
     el.style.height = 'auto';
     el.style.height = `${Math.min(el.scrollHeight, 500)}px`;
   }, [inputText]);
+
+  // Clear draft on successful process
+  const originalHandleProcess = handleProcess;
+  const wrappedHandleProcess = useCallback(async () => {
+    await originalHandleProcess();
+    localStorage.removeItem(DRAFT_KEY);
+  }, [originalHandleProcess]);
 
   // Keyboard shortcut: Cmd/Ctrl + Enter
   const handleKeyDown = useCallback(
@@ -174,7 +199,7 @@ export default function BrainDumpPanel({
           </div>
         </div>
         <button
-          onClick={handleProcess}
+          onClick={wrappedHandleProcess}
           disabled={isProcessing || !inputText.trim()}
           className="w-full bg-black text-white rounded-xl py-3.5 font-bold text-[15px] flex justify-center items-center gap-2 hover:bg-zinc-800 transition-all disabled:opacity-50 active:scale-[0.98]"
         >

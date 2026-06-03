@@ -3,8 +3,10 @@
 import { useState, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
 import { useLocalStorage } from './useLocalStorage';
-import { formatTasks, createStickyNote, updateStickyNoteDeadline } from '@/lib/utils';
+import { formatTasks, createStickyNote, updateStickyNoteDeadline, generateId } from '@/lib/utils';
 import type { Task, StickyNote, ClarificationQuestion, BreakdownMode, ActiveTab, BrainDumpSession, AnalyzeResponse } from '@/types';
+
+export type ProcessingStep = 'analyzing' | 'breaking-down' | 'syncing' | null;
 
 interface UseTaskProcessorReturn {
   tasks: Task[];
@@ -27,6 +29,7 @@ interface UseTaskProcessorReturn {
   inputText: string;
   setInputText: (val: string) => void;
   isProcessing: boolean;
+  processingStep: ProcessingStep;
   clarificationQuestions: ClarificationQuestion[];
   selectedAnswers: Record<number, string[]>;
   setSelectedAnswers: React.Dispatch<React.SetStateAction<Record<number, string[]>>>;
@@ -40,6 +43,12 @@ interface UseTaskProcessorReturn {
   toggleTaskCompleted: (taskId: string) => void;
   completionRate: number;
   duplicateSuggestions: string[];
+  // Inline editing
+  updateTaskTitle: (taskId: string, title: string) => void;
+  updateSubtaskTitle: (taskId: string, subtaskId: string, title: string) => void;
+  deleteTask: (taskId: string) => void;
+  addSubtask: (taskId: string, title: string) => void;
+  loadSession: (session: BrainDumpSession) => void;
 }
 
 export function useTaskProcessor(): UseTaskProcessorReturn {
@@ -54,6 +63,7 @@ export function useTaskProcessor(): UseTaskProcessorReturn {
 
   const [inputText, setInputText] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [processingStep, setProcessingStep] = useState<ProcessingStep>(null);
   const [clarificationQuestions, setClarificationQuestions] = useState<ClarificationQuestion[]>([]);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string[]>>({});
   const [customAnswers, setCustomAnswers] = useState<Record<number, string>>({});
@@ -105,6 +115,59 @@ export function useTaskProcessor(): UseTaskProcessorReturn {
     );
   }, [setTasks]);
 
+  const updateTaskTitle = useCallback((taskId: string, title: string) => {
+    setTasks((prev) =>
+      prev.map((t) => (t.id === taskId ? { ...t, title: title.trim() || t.title } : t))
+    );
+  }, [setTasks]);
+
+  const updateSubtaskTitle = useCallback((taskId: string, subtaskId: string, title: string) => {
+    setTasks((prev) =>
+      prev.map((t) =>
+        t.id === taskId
+          ? {
+              ...t,
+              subtasks: t.subtasks.map((s) =>
+                s.id === subtaskId ? { ...s, title: title.trim() || s.title } : s
+              ),
+            }
+          : t
+      )
+    );
+  }, [setTasks]);
+
+  const deleteTask = useCallback((taskId: string) => {
+    setTasks((prev) => prev.filter((t) => t.id !== taskId));
+    toast.success('任務已刪除');
+  }, [setTasks]);
+
+  const addSubtask = useCallback((taskId: string, title: string) => {
+    if (!title.trim()) return;
+    setTasks((prev) =>
+      prev.map((t) =>
+        t.id === taskId
+          ? {
+              ...t,
+              subtasks: [
+                ...t.subtasks,
+                { id: generateId('s'), title: title.trim(), completed: false },
+              ],
+            }
+          : t
+      )
+    );
+  }, [setTasks]);
+
+  const loadSession = useCallback((session: BrainDumpSession) => {
+    setTasks(session.tasks);
+    setSummary(session.summary);
+    setMindmap(session.mindmap);
+    setIsDone(true);
+    setActiveTab('todo');
+    setInputText(session.text);
+    toast.success('已載入歷史紀錄');
+  }, [setTasks, setSummary, setMindmap, setIsDone, setActiveTab, setInputText]);
+
   const addStickyNote = useCallback((text: string, deadline?: string) => {
     const note = createStickyNote(text, deadline);
     setStickyNotes((prev) => [note, ...prev]);
@@ -145,7 +208,7 @@ export function useTaskProcessor(): UseTaskProcessorReturn {
 
   const callAnalyzeAPI = useCallback(async (text: string, mode: string): Promise<AnalyzeResponse> => {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000);
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
     try {
       const response = await fetch('/api/analyze', {
         method: 'POST',
@@ -154,10 +217,16 @@ export function useTaskProcessor(): UseTaskProcessorReturn {
         signal: controller.signal,
       });
       clearTimeout(timeoutId);
-      if (!response.ok) throw new Error('AI 解析失敗');
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || `AI 解析失敗 (${response.status})`);
+      }
       return await response.json();
     } catch (error) {
       clearTimeout(timeoutId);
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error('請求逾時，AI 伺服器回應過慢，請稍後再試。');
+      }
       throw error;
     }
   }, []);
@@ -165,9 +234,11 @@ export function useTaskProcessor(): UseTaskProcessorReturn {
   const handleProcess = useCallback(async () => {
     if (!inputText.trim()) return;
     setIsProcessing(true);
+    setProcessingStep('analyzing');
     resetSession();
 
     try {
+      setProcessingStep('breaking-down');
       const data = await callAnalyzeAPI(inputText, breakdownMode);
 
       if ((data.clarificationQuestions?.length ?? 0) > 0) {
@@ -181,19 +252,18 @@ export function useTaskProcessor(): UseTaskProcessorReturn {
       setActiveTab('todo');
       toast.success('AI 解析完成！');
     } catch (error: unknown) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        toast.error('請求逾時，請稍後再試。');
-      } else {
-        console.error(error);
-        toast.error('處理失敗，請稍後再試。');
-      }
+      const message = error instanceof Error ? error.message : '處理失敗，請稍後再試。';
+      console.error(error);
+      toast.error(message);
     } finally {
       setIsProcessing(false);
+      setProcessingStep(null);
     }
   }, [inputText, breakdownMode, resetSession, processResponse, setIsDone, setActiveTab, callAnalyzeAPI]);
 
   const submitClarificationAnswers = useCallback(async () => {
     setIsProcessing(true);
+    setProcessingStep('analyzing');
 
     const combinedAnswers = clarificationQuestions
       .map((q, i) => {
@@ -211,6 +281,7 @@ export function useTaskProcessor(): UseTaskProcessorReturn {
     setClarificationQuestions([]);
 
     try {
+      setProcessingStep('breaking-down');
       const data = await callAnalyzeAPI(finalPrompt, 'auto');
       processResponse(data);
       setIsDone(true);
@@ -218,14 +289,12 @@ export function useTaskProcessor(): UseTaskProcessorReturn {
       setBreakdownMode('auto');
       toast.success('根據釐清資訊，AI 重組片段完成！');
     } catch (error: unknown) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        toast.error('請求逾時，請稍後再試。');
-      } else {
-        console.error(error);
-        toast.error('處理失敗，請稍後再試。');
-      }
+      const message = error instanceof Error ? error.message : '處理失敗，請稍後再試。';
+      console.error(error);
+      toast.error(message);
     } finally {
       setIsProcessing(false);
+      setProcessingStep(null);
     }
   }, [clarificationQuestions, selectedAnswers, customAnswers, inputText, processResponse, setIsDone, setActiveTab, setBreakdownMode, callAnalyzeAPI]);
 
@@ -250,6 +319,7 @@ export function useTaskProcessor(): UseTaskProcessorReturn {
     inputText,
     setInputText,
     isProcessing,
+    processingStep,
     clarificationQuestions,
     selectedAnswers,
     setSelectedAnswers,
@@ -263,5 +333,10 @@ export function useTaskProcessor(): UseTaskProcessorReturn {
     toggleTaskCompleted,
     completionRate,
     duplicateSuggestions,
+    updateTaskTitle,
+    updateSubtaskTitle,
+    deleteTask,
+    addSubtask,
+    loadSession,
   };
 }
