@@ -42,7 +42,7 @@ async function withRetry<T>(
 export async function POST(req: Request) {
   try {
     const { tasks } = await req.json();
-    const databaseId = process.env.NOTION_TODO_DB_ID;
+    const databaseId = process.env.NOTION_MOUSE_DB_ID;
 
     if (!databaseId) {
       return NextResponse.json({ error: '尚未設定 NOTION_TODO_DB_ID' }, { status: 400 });
