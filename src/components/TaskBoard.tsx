@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ListTodo, Lightbulb, Network, CheckCircle2, Clock, History, TrendingUp, Repeat, Pencil, Trash2, Plus, X, Search, ArrowUpDown, Copy, Check } from 'lucide-react';
+import { ListTodo, Lightbulb, Network, CheckCircle2, Clock, History, TrendingUp, Repeat, Trash2, Plus, X, Search, ArrowUpDown, Copy, Check, AlertTriangle } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { toggleSubtaskInTasks, updateTaskDeadline } from '@/lib/utils';
 import type { Task, ActiveTab, BrainDumpSession } from '@/types';
@@ -64,7 +64,7 @@ function InlineEdit({ value, onSave, className = '' }: { value: string; onSave: 
           if (e.key === 'Enter') save();
           if (e.key === 'Escape') cancel();
         }}
-        className={`bg-white border border-zinc-300 rounded px-2 py-0.5 text-sm outline-none focus:border-black ${className}`}
+        className={`rounded border border-zinc-300 bg-white px-2 py-0.5 text-sm outline-none focus:border-zinc-500 ${className}`}
       />
     );
   }
@@ -72,10 +72,41 @@ function InlineEdit({ value, onSave, className = '' }: { value: string; onSave: 
   return (
     <span
       onClick={() => setIsEditing(true)}
-      className={`cursor-text hover:bg-zinc-100 rounded px-1 -mx-1 transition-colors ${className}`}
+      className={`-mx-1 cursor-text rounded px-1 transition-colors hover:bg-zinc-100 ${className}`}
       title="點擊編輯"
     >
       {value}
+    </span>
+  );
+}
+
+function DeadlineBadge({ daysLeft, isUrgent, muted }: { daysLeft: number; isUrgent: boolean; muted: boolean }) {
+  if (muted) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-md bg-zinc-100 px-2.5 py-1 text-xs font-semibold text-zinc-400">
+        <CheckCircle2 size={12} strokeWidth={2.5} />
+        已完成
+      </span>
+    );
+  }
+  const overdue = daysLeft < 0;
+  const critical = overdue || daysLeft <= 2;
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold ring-1 ${
+        critical
+          ? 'bg-red-50 text-red-600 ring-red-100'
+          : 'bg-amber-50 text-amber-700 ring-amber-100'
+      }`}
+    >
+      {overdue ? <AlertTriangle size={12} strokeWidth={2.5} /> : <Clock size={12} strokeWidth={2.5} />}
+      {overdue
+        ? `已逾期 ${Math.abs(daysLeft)} 天`
+        : daysLeft === 0
+        ? '今天到期'
+        : isUrgent
+        ? `倒數 ${daysLeft} 天`
+        : `剩餘 ${daysLeft} 天`}
     </span>
   );
 }
@@ -144,10 +175,10 @@ export default function TaskBoard({
   });
 
   const tabs: { key: ActiveTab; label: string; icon: React.ReactNode }[] = [
-    { key: 'todo', label: '執行碎片', icon: <ListTodo size={16} /> },
-    { key: 'summary', label: '30秒重點', icon: <Lightbulb size={16} /> },
-    { key: 'mindmap', label: '視覺心智圖', icon: <Network size={16} /> },
-    { key: 'history', label: '歷史紀錄', icon: <History size={16} /> },
+    { key: 'todo', label: '執行碎片', icon: <ListTodo size={15} /> },
+    { key: 'summary', label: '30秒重點', icon: <Lightbulb size={15} /> },
+    { key: 'mindmap', label: '視覺心智圖', icon: <Network size={15} /> },
+    { key: 'history', label: '歷史紀錄', icon: <History size={15} /> },
   ];
 
   const filters: { key: FilterMode; label: string }[] = [
@@ -162,18 +193,18 @@ export default function TaskBoard({
       key="result"
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
-      className="bg-white rounded-2xl shadow-sm border border-zinc-200 overflow-hidden"
+      className="overflow-hidden rounded-2xl border border-zinc-200/80 bg-white shadow-sm"
     >
       {/* Tabs */}
-      <div className="flex border-b border-zinc-200 bg-zinc-50/50 p-2 gap-2">
+      <div className="flex gap-1 border-b border-zinc-200/80 bg-zinc-50/70 p-1.5">
         {tabs.map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 ${
+            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-[13px] font-semibold transition-all ${
               activeTab === tab.key
-                ? 'bg-white shadow-sm text-black'
-                : 'text-zinc-500 hover:bg-zinc-100'
+                ? 'bg-white text-zinc-900 shadow-sm ring-1 ring-zinc-200/70'
+                : 'text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700'
             }`}
           >
             {tab.icon}
@@ -192,14 +223,14 @@ export default function TaskBoard({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.2 }}
-              className="space-y-6"
+              className="space-y-5"
             >
               {/* Completion Rate Header */}
               {tasks.length > 0 && (
-                <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2 text-sm font-bold text-zinc-700">
-                      <TrendingUp size={16} />
+                <div className="rounded-xl border border-zinc-200/80 bg-zinc-50/70 p-4">
+                  <div className="mb-2.5 flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-zinc-700">
+                      <TrendingUp size={15} className="text-indigo-500" />
                       整體完成率
                     </div>
                     <div className="flex items-center gap-3">
@@ -217,18 +248,18 @@ export default function TaskBoard({
                             setTimeout(() => setCopied(false), 2000);
                           });
                         }}
-                        className="text-xs font-bold text-zinc-500 hover:text-black flex items-center gap-1 transition-colors"
+                        className="flex items-center gap-1 text-xs font-semibold text-zinc-500 transition-colors hover:text-zinc-900"
                         title="複製任務清單"
                       >
-                        {copied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+                        {copied ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
                         {copied ? '已複製' : '複製'}
                       </button>
-                      <span className="text-lg font-black text-black">{completionRate}%</span>
+                      <span className="text-lg font-bold tabular-nums text-zinc-900">{completionRate}%</span>
                     </div>
                   </div>
-                  <div className="h-2.5 bg-zinc-200 rounded-full overflow-hidden">
+                  <div className="h-2 overflow-hidden rounded-full bg-zinc-200">
                     <motion.div
-                      className={`h-full rounded-full ${completionRate === 100 ? 'bg-green-500' : 'bg-black'}`}
+                      className={`h-full rounded-full ${completionRate === 100 ? 'bg-emerald-500' : 'bg-indigo-600'}`}
                       initial={{ width: 0 }}
                       animate={{ width: `${completionRate}%` }}
                       transition={{ duration: 0.5 }}
@@ -238,14 +269,14 @@ export default function TaskBoard({
               )}
               {/* Duplicate Suggestions */}
               {duplicateSuggestions.length > 0 && (
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-                  <div className="flex items-center gap-2 text-sm font-bold text-amber-800 mb-2">
-                    <Repeat size={16} />
+                <div className="rounded-xl border border-amber-200/70 bg-amber-50/70 p-4">
+                  <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-amber-800">
+                    <Repeat size={15} />
                     重複任務偵測 — 建議轉為習慣追蹤
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {duplicateSuggestions.map((title) => (
-                      <span key={title} className="px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-medium">
+                      <span key={title} className="rounded-full bg-white px-3 py-1 text-xs font-medium text-amber-700 ring-1 ring-amber-200">
                         「{title}」出現 3+ 次
                       </span>
                     ))}
@@ -263,19 +294,18 @@ export default function TaskBoard({
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       placeholder="搜尋任務或子任務..."
-                      className="w-full bg-white border border-zinc-200 pl-9 pr-4 py-2 rounded-xl text-sm font-medium text-zinc-800 outline-none focus:border-black transition-all"
+                      className="w-full rounded-xl border border-zinc-200 bg-white py-2 pl-9 pr-4 text-sm font-medium text-zinc-800 outline-none transition-colors placeholder:text-zinc-400 focus:border-zinc-400"
                     />
                   </div>
                   <div className="flex items-center gap-2 overflow-x-auto pb-1">
-                    <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider mr-1 shrink-0">篩選</span>
                     {filters.map((f) => (
                       <button
                         key={f.key}
                         onClick={() => setFilter(f.key)}
-                        className={`px-3 py-1 rounded-full text-xs font-bold transition-all shrink-0 ${
+                        className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition-all ${
                           filter === f.key
-                            ? 'bg-black text-white'
-                            : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200'
+                            ? 'bg-zinc-900 text-white shadow-sm'
+                            : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200 hover:text-zinc-700'
                         }`}
                       >
                         {f.label}
@@ -286,7 +316,7 @@ export default function TaskBoard({
                       <select
                         value={sortMode}
                         onChange={(e) => setSortMode(e.target.value as typeof sortMode)}
-                        className="text-xs font-bold text-zinc-600 bg-zinc-100 rounded-lg px-2 py-1 outline-none border-none cursor-pointer"
+                        className="cursor-pointer rounded-lg border-none bg-zinc-100 px-2 py-1 text-xs font-semibold text-zinc-600 outline-none"
                       >
                         <option value="deadline">按死線</option>
                         <option value="urgency">按緊急度</option>
@@ -298,7 +328,7 @@ export default function TaskBoard({
               )}
 
               {filteredTasks.length === 0 && tasks.length > 0 && (
-                <div className="text-center py-12 text-zinc-400">
+                <div className="py-12 text-center text-zinc-400">
                   <p className="text-sm">沒有符合篩選條件的任務</p>
                 </div>
               )}
@@ -313,15 +343,15 @@ export default function TaskBoard({
                   <motion.div
                     key={task.id}
                     layout
-                    className={`border rounded-xl overflow-hidden transition-all duration-500 ${
-                      isAllDone ? 'border-green-200 bg-green-50/30' : 'border-zinc-200 bg-white'
+                    className={`overflow-hidden rounded-xl border transition-all duration-500 ${
+                      isAllDone ? 'border-emerald-200/80 bg-emerald-50/30' : 'border-zinc-200/80 bg-white'
                     }`}
                   >
-                    <div className="p-4 border-b border-zinc-100 flex flex-wrap gap-y-3 justify-between items-start bg-zinc-50/50">
+                    <div className="flex flex-wrap items-start justify-between gap-y-3 border-b border-zinc-100 bg-zinc-50/60 p-4">
                       <div className="min-w-0 flex-1">
                         <h3
-                          className={`font-bold text-lg flex items-center gap-2 transition-all duration-300 ${
-                            isAllDone || task.completed ? 'text-green-700 line-through opacity-70' : 'text-zinc-900'
+                          className={`flex items-center gap-2 text-base font-bold transition-all duration-300 ${
+                            isAllDone || task.completed ? 'text-emerald-700 line-through opacity-70' : 'text-zinc-900'
                           }`}
                         >
                           {toggleTaskCompleted && (
@@ -329,11 +359,11 @@ export default function TaskBoard({
                               type="checkbox"
                               checked={!!task.completed}
                               onChange={() => handleToggleTask(task.id)}
-                              className="w-5 h-5 accent-black cursor-pointer"
+                              className="h-[18px] w-[18px] cursor-pointer accent-zinc-900"
                               title="標記整個任務完成"
                             />
                           )}
-                          {isAllDone && <CheckCircle2 size={20} className="text-green-500 flex-shrink-0" />}
+                          {isAllDone && <CheckCircle2 size={18} className="flex-shrink-0 text-emerald-500" />}
                           <span className="break-words">
                             {updateTaskTitle ? (
                               <InlineEdit value={task.title} onSave={(v) => updateTaskTitle(task.id, v)} />
@@ -342,35 +372,16 @@ export default function TaskBoard({
                             )}
                           </span>
                         </h3>
-                        <div className="flex items-center gap-3 mt-2 flex-wrap">
-                          <span
-                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold ${
-                              isAllDone
-                                ? 'bg-zinc-100 text-zinc-400'
-                                : task.daysLeft <= 2 && task.daysLeft >= 0
-                                ? 'bg-red-100 text-red-700'
-                                : task.daysLeft < 0
-                                ? 'bg-red-100 text-red-700'
-                                : 'bg-orange-100 text-orange-700'
-                            }`}
-                          >
-                            <Clock size={12} strokeWidth={3} />
-                            {task.daysLeft < 0
-                              ? `⚠️ 已逾期 ${Math.abs(task.daysLeft)} 天`
-                              : task.daysLeft === 0
-                              ? `🔥 今天到期`
-                              : task.isUrgent
-                              ? `🔥 倒數 ${task.daysLeft} 天死線`
-                              : `⏳ 倒數 ${task.daysLeft} 天`}
-                          </span>
-                          <div className="flex items-center gap-1.5 text-xs text-zinc-500 font-medium bg-transparent border border-zinc-200 rounded px-2 py-1 hover:bg-white transition-colors">
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <DeadlineBadge daysLeft={task.daysLeft} isUrgent={task.isUrgent} muted={isAllDone} />
+                          <div className="flex items-center gap-1.5 rounded-md border border-zinc-200 bg-white px-2 py-1 text-xs font-medium text-zinc-500 transition-colors hover:border-zinc-300">
                             <input
                               type="date"
                               value={task.deadline}
                               onChange={(e) => handleDeadlineChange(task.id, e.target.value)}
-                              className="bg-transparent outline-none cursor-pointer"
+                              className="cursor-pointer bg-transparent outline-none"
                             />
-                            <span className="text-zinc-400 shrink-0">
+                            <span className="shrink-0 text-zinc-400">
                               {format(parseISO(task.deadline), 'EEE')}
                             </span>
                           </div>
@@ -378,14 +389,14 @@ export default function TaskBoard({
                       </div>
 
                       <div className="flex items-center gap-2">
-                        <div className="w-full sm:w-32 flex flex-col gap-1.5">
-                          <div className="flex justify-between text-xs font-bold text-zinc-400">
+                        <div className="flex w-full flex-col gap-1.5 sm:w-32">
+                          <div className="flex justify-between text-xs font-semibold text-zinc-400">
                             <span>進度</span>
-                            <span className={isAllDone ? 'text-green-600' : 'text-black'}>{progress}%</span>
+                            <span className={`tabular-nums ${isAllDone ? 'text-emerald-600' : 'text-zinc-900'}`}>{progress}%</span>
                           </div>
-                          <div className="h-2.5 bg-zinc-100 rounded-full overflow-hidden">
+                          <div className="h-2 overflow-hidden rounded-full bg-zinc-100">
                             <motion.div
-                              className={`h-full rounded-full ${isAllDone ? 'bg-green-500' : 'bg-black'}`}
+                              className={`h-full rounded-full ${isAllDone ? 'bg-emerald-500' : 'bg-indigo-600'}`}
                               initial={{ width: 0 }}
                               animate={{ width: `${progress}%` }}
                               transition={{ duration: 0.5, ease: 'easeOut' }}
@@ -395,40 +406,40 @@ export default function TaskBoard({
                         {deleteTask && (
                           <button
                             onClick={() => deleteTask(task.id)}
-                            className="p-1.5 rounded-md hover:bg-red-100 text-zinc-400 hover:text-red-500 transition-colors"
+                            className="rounded-md p-1.5 text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-500"
                             title="刪除任務"
                           >
-                            <Trash2 size={16} />
+                            <Trash2 size={15} />
                           </button>
                         )}
                       </div>
                     </div>
 
-                    <div className="p-2 space-y-1">
+                    <div className="space-y-0.5 p-2">
                       {task.subtasks.map((sub) => (
                         <motion.label
                           layout
                           key={sub.id}
-                          className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors hover:bg-zinc-50 ${
+                          className={`flex cursor-pointer items-center gap-3 rounded-lg p-3 transition-colors hover:bg-zinc-50 ${
                             sub.completed ? 'opacity-50' : ''
                           }`}
                         >
-                          <div className="relative flex items-center justify-center flex-shrink-0">
+                          <div className="relative flex flex-shrink-0 items-center justify-center">
                             <input
                               type="checkbox"
                               checked={sub.completed}
                               onChange={() => handleToggleSubtask(task.id, sub.id)}
-                              className="peer w-5 h-5 appearance-none border-2 border-zinc-300 rounded-md checked:border-black checked:bg-black transition-all cursor-pointer"
+                              className="peer h-5 w-5 cursor-pointer appearance-none rounded-md border-2 border-zinc-300 transition-all checked:border-indigo-600 checked:bg-indigo-600"
                             />
                             <CheckCircle2
                               size={14}
-                              className="absolute text-white opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity"
+                              className="pointer-events-none absolute text-white opacity-0 transition-opacity peer-checked:opacity-100"
                               strokeWidth={3}
                             />
                           </div>
                           <span
-                            className={`text-[15px] font-medium transition-all duration-300 flex-1 ${
-                              sub.completed ? 'line-through text-zinc-400' : 'text-zinc-700'
+                            className={`flex-1 text-[15px] font-medium transition-all duration-300 ${
+                              sub.completed ? 'text-zinc-400 line-through' : 'text-zinc-700'
                             }`}
                           >
                             {updateSubtaskTitle ? (
@@ -461,7 +472,7 @@ export default function TaskBoard({
                                   }
                                 }}
                                 placeholder="輸入新子任務..."
-                                className="flex-1 bg-white border border-zinc-200 rounded-lg px-3 py-1.5 text-sm outline-none focus:border-black"
+                                className="flex-1 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-zinc-400"
                               />
                               <button
                                 onClick={() => {
@@ -469,7 +480,7 @@ export default function TaskBoard({
                                   setNewSubtaskTitle('');
                                   setAddingToTask(null);
                                 }}
-                                className="p-1.5 rounded-md hover:bg-zinc-100 text-zinc-600"
+                                className="rounded-md p-1.5 text-zinc-600 hover:bg-zinc-100"
                               >
                                 <Plus size={16} />
                               </button>
@@ -478,7 +489,7 @@ export default function TaskBoard({
                                   setAddingToTask(null);
                                   setNewSubtaskTitle('');
                                 }}
-                                className="p-1.5 rounded-md hover:bg-zinc-100 text-zinc-400"
+                                className="rounded-md p-1.5 text-zinc-400 hover:bg-zinc-100"
                               >
                                 <X size={16} />
                               </button>
@@ -486,7 +497,7 @@ export default function TaskBoard({
                           ) : (
                             <button
                               onClick={() => setAddingToTask(task.id)}
-                              className="flex items-center gap-1.5 text-xs font-bold text-zinc-400 hover:text-zinc-700 transition-colors py-1"
+                              className="flex items-center gap-1.5 py-1 text-xs font-semibold text-zinc-400 transition-colors hover:text-zinc-700"
                             >
                               <Plus size={14} />
                               新增子任務
@@ -500,9 +511,9 @@ export default function TaskBoard({
               })}
 
               {tasks.length === 0 && (
-                <div className="text-center py-12 text-zinc-400">
-                  <ListTodo size={48} className="mx-auto mb-4 text-zinc-300" />
-                  <p className="text-lg font-medium text-zinc-500 mb-2">尚無任務</p>
+                <div className="py-12 text-center text-zinc-400">
+                  <ListTodo size={44} className="mx-auto mb-4 text-zinc-300" />
+                  <p className="mb-2 text-base font-semibold text-zinc-500">尚無任務</p>
                   <p className="text-sm">在左側輸入 Brain Dump，AI 會幫你拆解成可執行碎片。</p>
                 </div>
               )}
@@ -519,22 +530,23 @@ export default function TaskBoard({
               transition={{ duration: 0.2 }}
               className="space-y-4"
             >
-              <h3 className="font-bold text-lg text-zinc-900 border-b border-zinc-100 pb-2 mb-4">
-                ✨ AI 重點提煉
-              </h3>
+              <div className="mb-4 flex items-center gap-2 border-b border-zinc-100 pb-3">
+                <Lightbulb size={17} className="text-indigo-500" />
+                <h3 className="text-base font-bold text-zinc-900">AI 重點提煉</h3>
+              </div>
               {summary.length > 0 ? (
                 <ul className="space-y-3">
                   {summary.map((text, i) => (
                     <li key={i} className="flex items-start gap-3">
-                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center text-xs font-bold mt-0.5">
+                      <span className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-indigo-50 text-xs font-bold text-indigo-600 ring-1 ring-indigo-100">
                         {i + 1}
                       </span>
-                      <span className="text-zinc-700 leading-relaxed">{text}</span>
+                      <span className="leading-relaxed text-zinc-700">{text}</span>
                     </li>
                   ))}
                 </ul>
               ) : (
-                <p className="text-zinc-400">目前沒有總結資料。</p>
+                <p className="text-sm text-zinc-400">目前沒有總結資料。</p>
               )}
             </motion.div>
           )}
@@ -549,14 +561,15 @@ export default function TaskBoard({
               transition={{ duration: 0.2 }}
               className="space-y-4"
             >
-              <h3 className="font-bold text-lg text-zinc-900 border-b border-zinc-100 pb-2 mb-4">
-                🧠 視覺心智圖
-              </h3>
-              <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-4 min-h-[300px] flex items-center justify-center">
+              <div className="mb-4 flex items-center gap-2 border-b border-zinc-100 pb-3">
+                <Network size={17} className="text-indigo-500" />
+                <h3 className="text-base font-bold text-zinc-900">視覺心智圖</h3>
+              </div>
+              <div className="flex min-h-[300px] items-center justify-center rounded-xl border border-zinc-200/80 bg-zinc-50/70 p-4">
                 {mindmap ? (
                   <Mermaid chart={mindmap} />
                 ) : (
-                  <p className="text-zinc-400">沒有生成心智圖資料。</p>
+                  <p className="text-sm text-zinc-400">沒有生成心智圖資料。</p>
                 )}
               </div>
             </motion.div>
@@ -572,21 +585,22 @@ export default function TaskBoard({
               transition={{ duration: 0.2 }}
               className="space-y-4"
             >
-              <h3 className="font-bold text-lg text-zinc-900 border-b border-zinc-100 pb-2 mb-4">
-                📜 Brain Dump 歷史紀錄
-              </h3>
+              <div className="mb-4 flex items-center gap-2 border-b border-zinc-100 pb-3">
+                <History size={17} className="text-indigo-500" />
+                <h3 className="text-base font-bold text-zinc-900">Brain Dump 歷史紀錄</h3>
+              </div>
               {sessions.length === 0 ? (
-                <p className="text-zinc-400">尚無歷史紀錄。</p>
+                <p className="text-sm text-zinc-400">尚無歷史紀錄。</p>
               ) : (
-                <div className="space-y-4 max-h-[500px] overflow-y-auto">
+                <div className="max-h-[500px] space-y-3 overflow-y-auto">
                   {sessions.map((session) => (
-                    <div key={session.id} className="border border-zinc-200 rounded-xl p-4 bg-zinc-50/50 hover:bg-zinc-50 transition-colors group">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-bold text-zinc-400">
+                    <div key={session.id} className="group rounded-xl border border-zinc-200/80 bg-zinc-50/60 p-4 transition-colors hover:bg-zinc-50">
+                      <div className="mb-2 flex items-center justify-between">
+                        <span className="text-xs font-medium text-zinc-400">
                           {new Date(session.createdAt).toLocaleString('zh-TW')}
                         </span>
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-zinc-500 bg-zinc-100 px-2 py-0.5 rounded">
+                          <span className="rounded bg-zinc-100 px-2 py-0.5 text-xs font-semibold text-zinc-500">
                             {session.tasks.length} 個任務
                           </span>
                           <button
@@ -595,30 +609,30 @@ export default function TaskBoard({
                                 setSessions?.(prev => prev.filter(s => s.id !== session.id));
                               }
                             }}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-red-100 text-zinc-400 hover:text-red-500"
+                            className="rounded p-1 text-zinc-400 opacity-0 transition-opacity hover:bg-red-50 hover:text-red-500 group-hover:opacity-100"
                             title="刪除紀錄"
                           >
                             <Trash2 size={14} />
                           </button>
                         </div>
                       </div>
-                      <p className="text-sm text-zinc-700 line-clamp-2 mb-3">{session.text}</p>
-                      <div className="flex flex-wrap gap-1 mb-3">
+                      <p className="mb-3 line-clamp-2 text-sm text-zinc-700">{session.text}</p>
+                      <div className="mb-3 flex flex-wrap gap-1">
                         {session.tasks.slice(0, 5).map((t) => (
-                          <span key={t.id} className="text-[10px] bg-white border border-zinc-200 px-2 py-0.5 rounded text-zinc-600">
+                          <span key={t.id} className="rounded border border-zinc-200 bg-white px-2 py-0.5 text-[11px] text-zinc-600">
                             {t.title}
                           </span>
                         ))}
                         {session.tasks.length > 5 && (
-                          <span className="text-[10px] text-zinc-400">+{session.tasks.length - 5} more</span>
+                          <span className="text-[11px] text-zinc-400">+{session.tasks.length - 5} more</span>
                         )}
                       </div>
                       {loadSession && (
                         <button
                           onClick={() => loadSession(session)}
-                          className="w-full py-2 rounded-lg bg-black text-white text-xs font-bold hover:bg-zinc-800 transition-colors flex items-center justify-center gap-1.5"
+                          className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-zinc-200 bg-white py-2 text-xs font-semibold text-zinc-700 shadow-sm transition-colors hover:border-zinc-300 hover:bg-zinc-50"
                         >
-                          <History size={14} />
+                          <History size={13} />
                           載入此紀錄
                         </button>
                       )}
