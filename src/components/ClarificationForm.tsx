@@ -36,45 +36,47 @@ export default function ClarificationForm({
     <motion.div
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
-      className="bg-white rounded-2xl shadow-sm border border-zinc-200 overflow-hidden p-8"
+      className="overflow-hidden rounded-2xl border border-zinc-200/80 bg-white p-7 shadow-sm"
     >
-      <div className="flex items-center gap-3 mb-6 border-b border-zinc-100 pb-4">
-        <div className="w-10 h-10 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center flex-shrink-0">
-          <Lightbulb size={24} />
+      <div className="mb-6 flex items-center gap-3 border-b border-zinc-100 pb-5">
+        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 ring-1 ring-indigo-100">
+          <Lightbulb size={20} />
         </div>
         <div>
-          <h3 className="font-bold text-xl text-zinc-900">等一下，任務太模糊了！</h3>
-          <p className="text-zinc-500 text-sm">
+          <h3 className="text-lg font-bold text-zinc-900">等一下，任務太模糊了！</h3>
+          <p className="text-sm text-zinc-500">
             為了幫你切出最好的執行碎片，教練需要你先釐清這些問題：
           </p>
         </div>
       </div>
 
-      <div className="space-y-6 mb-8">
+      <div className="mb-8 space-y-5">
         {clarificationQuestions.map((q, i) => (
           <motion.div
             key={i}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.1 }}
-            className="p-5 bg-indigo-50/50 rounded-xl border border-indigo-100/50 shadow-sm flex flex-col gap-3"
+            className="flex flex-col gap-3 rounded-xl border border-zinc-200/80 bg-zinc-50/60 p-5"
           >
-            <div className="text-indigo-900 font-bold text-lg flex gap-3">
-              <span className="text-indigo-400 flex-shrink-0">{i + 1}.</span>
+            <div className="flex gap-3 text-[15px] font-bold text-zinc-900">
+              <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-indigo-50 text-xs font-bold text-indigo-600 ring-1 ring-indigo-100">
+                {i + 1}
+              </span>
               <span>{q.question}</span>
             </div>
             {q.options && q.options.length > 0 && (
-              <div className="flex flex-wrap gap-2 pl-7 mt-2">
+              <div className="mt-1 flex flex-wrap gap-2 pl-9">
                 {q.options.map((opt, optIdx) => {
                   const isSelected = (selectedAnswers[i] || []).includes(opt);
                   return (
                     <button
                       key={optIdx}
                       onClick={() => toggleOption(i, opt)}
-                      className={`px-3 py-1.5 border text-sm font-medium rounded-lg transition-all shadow-sm ${
+                      className={`rounded-lg border px-3 py-1.5 text-sm font-medium shadow-sm transition-all ${
                         isSelected
-                          ? 'bg-indigo-600 text-white border-indigo-600'
-                          : 'bg-white border-indigo-200 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-300'
+                          ? 'border-indigo-600 bg-indigo-600 text-white'
+                          : 'border-zinc-200 bg-white text-zinc-700 hover:border-indigo-300 hover:text-indigo-700'
                       }`}
                     >
                       {opt}
@@ -83,7 +85,7 @@ export default function ClarificationForm({
                 })}
               </div>
             )}
-            <div className="pl-7 mt-2">
+            <div className="mt-1 pl-9">
               <input
                 type="text"
                 placeholder="補充其他想法..."
@@ -91,7 +93,7 @@ export default function ClarificationForm({
                 onChange={(e) =>
                   setCustomAnswers((prev) => ({ ...prev, [i]: e.target.value }))
                 }
-                className="w-full bg-white border border-indigo-200 rounded-lg px-3 py-2 text-sm text-indigo-900 placeholder:text-indigo-300 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-800 outline-none transition-colors placeholder:text-zinc-400 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200"
               />
             </div>
           </motion.div>
@@ -100,7 +102,7 @@ export default function ClarificationForm({
 
       <button
         onClick={submitClarificationAnswers}
-        className="w-full bg-indigo-600 text-white rounded-xl py-3.5 font-bold text-[15px] flex justify-center items-center gap-2 hover:bg-indigo-700 transition-all active:scale-[0.98] shadow-sm"
+        className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 py-3.5 text-[15px] font-semibold text-white shadow-sm transition-all hover:bg-indigo-700 active:scale-[0.99]"
       >
         確認回答，開始生成碎片 <ChevronRight size={18} />
       </button>

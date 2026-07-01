@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { StickyNote, Plus, Clock, CheckCircle2, Keyboard } from 'lucide-react';
+import { StickyNote, Plus, Clock, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import type { StickyNote as StickyNoteType } from '@/types';
 
@@ -11,6 +11,27 @@ interface StickyNotesPanelProps {
   onAdd: (text: string, deadline?: string) => void;
   onDelete: (id: string) => void;
   onUpdateDate: (id: string, newDate: string) => void;
+}
+
+function DeadlineBadge({ daysLeft, isUrgent }: { daysLeft: number; isUrgent: boolean }) {
+  const overdue = daysLeft < 0;
+  const critical = overdue || daysLeft <= 2;
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold ${
+        critical ? 'bg-red-50 text-red-600 ring-1 ring-red-100' : 'bg-amber-50 text-amber-700 ring-1 ring-amber-100'
+      }`}
+    >
+      {overdue ? <AlertTriangle size={10} strokeWidth={2.5} /> : <Clock size={10} strokeWidth={2.5} />}
+      {overdue
+        ? `已逾期 ${Math.abs(daysLeft)} 天`
+        : daysLeft === 0
+        ? '今天到期'
+        : isUrgent
+        ? `倒數 ${daysLeft} 天`
+        : `剩餘 ${daysLeft} 天`}
+    </span>
+  );
 }
 
 export default function StickyNotesPanel({
@@ -53,20 +74,20 @@ export default function StickyNotesPanel({
   );
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-zinc-200 p-1 flex flex-col">
-      <div className="px-4 py-3 border-b border-zinc-100 flex items-center justify-between text-zinc-500 font-medium">
+    <section className="flex flex-col overflow-hidden rounded-2xl border border-zinc-200/80 bg-white shadow-sm">
+      <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-3.5">
         <div className="flex items-center gap-2">
-          <StickyNote size={18} className="text-amber-500" />
-          <span>便條紙待辦</span>
+          <StickyNote size={16} className="text-amber-500" />
+          <h2 className="text-sm font-semibold text-zinc-800">便條紙待辦</h2>
           {notes.length > 0 && (
-            <span className="bg-amber-100 text-amber-700 text-xs font-bold px-2 py-0.5 rounded-full">
+            <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-semibold text-zinc-500">
               {notes.length}
             </span>
           )}
         </div>
       </div>
 
-      <div className="p-4 space-y-3">
+      <div className="space-y-4 p-4">
         {/* Input Area */}
         <div className="space-y-2">
           <textarea
@@ -75,32 +96,28 @@ export default function StickyNotesPanel({
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="快速記下一件待辦事項..."
-            className="w-full min-h-[60px] max-h-[160px] p-3 resize-none outline-none text-zinc-700 leading-relaxed bg-zinc-50 rounded-xl border border-zinc-200 focus:border-amber-400 focus:ring-1 focus:ring-amber-400 transition-all text-sm"
+            className="min-h-[60px] max-h-[160px] w-full resize-none rounded-xl border border-zinc-200 bg-zinc-50/70 p-3 text-sm leading-relaxed text-zinc-700 outline-none transition-colors placeholder:text-zinc-400 focus:border-zinc-400 focus:bg-white focus-visible:outline-none"
           />
           <div className="flex items-center gap-2">
             <input
               type="date"
               value={deadline}
               onChange={(e) => setDeadline(e.target.value)}
-              className="text-xs text-zinc-500 font-medium bg-zinc-50 border border-zinc-200 rounded-lg px-2 py-1.5 outline-none focus:border-amber-400 cursor-pointer"
+              className="cursor-pointer rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs font-medium text-zinc-500 outline-none transition-colors focus:border-zinc-400"
             />
             <button
               onClick={handleAdd}
               disabled={!input.trim()}
-              className="flex-1 bg-amber-500 text-white rounded-lg py-1.5 font-bold text-sm flex justify-center items-center gap-1.5 hover:bg-amber-600 transition-all disabled:opacity-50 active:scale-[0.98]"
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-zinc-900 py-1.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-zinc-800 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40"
             >
-              <Plus size={16} />
-              貼上便條紙
+              <Plus size={15} />
+              新增便條
             </button>
-          </div>
-          <div className="flex items-center gap-1 text-[10px] text-zinc-400">
-            <Keyboard size={10} />
-            <span>Cmd / Ctrl + Enter 快速新增</span>
           </div>
         </div>
 
         {/* Notes List */}
-        <div className="space-y-2 max-h-[400px] overflow-y-auto scrollbar-hide">
+        <div className="scrollbar-hide max-h-[400px] space-y-2 overflow-y-auto">
           <AnimatePresence mode="popLayout">
             {notes.map((note) => (
               <motion.div
@@ -110,44 +127,27 @@ export default function StickyNotesPanel({
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.9, x: 50 }}
                 transition={{ duration: 0.2 }}
-                className="group relative bg-amber-50 border border-amber-200 rounded-xl p-3 hover:shadow-md transition-shadow"
+                className="group relative rounded-xl border border-amber-200/70 bg-amber-50/60 p-3.5 transition-shadow hover:shadow-md"
               >
                 <div className="flex items-start justify-between gap-2">
-                  <p className="text-sm text-zinc-800 leading-relaxed whitespace-pre-wrap break-words flex-1">
+                  <p className="flex-1 whitespace-pre-wrap break-words text-sm leading-relaxed text-zinc-800">
                     {note.text}
                   </p>
                   <button
                     onClick={() => onDelete(note.id)}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-amber-200 text-amber-700 flex-shrink-0"
+                    className="flex-shrink-0 rounded-md p-1 text-amber-600 opacity-0 transition-opacity hover:bg-amber-100 group-hover:opacity-100"
                     title="完成並移除"
                   >
                     <CheckCircle2 size={16} />
                   </button>
                 </div>
-                <div className="flex items-center gap-2 mt-2">
-                  <span
-                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold ${
-                      note.daysLeft < 0
-                        ? 'bg-red-100 text-red-700'
-                        : note.daysLeft <= 2
-                        ? 'bg-red-100 text-red-700'
-                        : 'bg-amber-100 text-amber-700'
-                    }`}
-                  >
-                    <Clock size={10} strokeWidth={3} />
-                    {note.daysLeft < 0
-                      ? `⚠️ 已逾期 ${Math.abs(note.daysLeft)} 天`
-                      : note.daysLeft === 0
-                      ? `🔥 今天到期`
-                      : note.isUrgent
-                      ? `🔥 倒數 ${note.daysLeft} 天`
-                      : `⏳ 倒數 ${note.daysLeft} 天`}
-                  </span>
+                <div className="mt-2.5 flex items-center gap-2">
+                  <DeadlineBadge daysLeft={note.daysLeft} isUrgent={note.isUrgent} />
                   <input
                     type="date"
                     value={note.deadline}
                     onChange={(e) => onUpdateDate(note.id, e.target.value)}
-                    className="text-[10px] text-zinc-500 font-medium bg-white border border-amber-200 rounded px-1.5 py-0.5 outline-none focus:border-amber-500 cursor-pointer hover:bg-amber-50 transition-colors"
+                    className="cursor-pointer rounded-md border border-amber-200/70 bg-white/70 px-1.5 py-0.5 text-[11px] font-medium text-zinc-500 outline-none transition-colors hover:bg-white focus:border-amber-400"
                   />
                 </div>
               </motion.div>
@@ -155,14 +155,14 @@ export default function StickyNotesPanel({
           </AnimatePresence>
 
           {notes.length === 0 && (
-            <div className="text-center py-6 text-zinc-400 text-sm">
-              <StickyNote size={32} className="mx-auto mb-2 text-zinc-300" />
-              <p>還沒有便條紙</p>
-              <p className="text-xs mt-1">在上方快速新增待辦，做完就刪掉！</p>
+            <div className="py-8 text-center">
+              <StickyNote size={28} className="mx-auto mb-2 text-zinc-300" />
+              <p className="text-sm font-medium text-zinc-400">還沒有便條紙</p>
+              <p className="mt-1 text-xs text-zinc-400">在上方快速新增待辦，做完就刪掉！</p>
             </div>
           )}
         </div>
       </div>
-    </div>
+    </section>
   );
 }

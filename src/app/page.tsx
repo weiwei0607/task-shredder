@@ -164,7 +164,7 @@ function TaskShredderApp({ hasGoogle }: { hasGoogle: boolean }) {
   };
 
   return (
-    <div className="min-h-screen bg-[#fafafa] text-zinc-800 font-sans pb-20">
+    <div className="min-h-screen bg-[#f7f7f8] text-zinc-800 font-sans pb-20">
       <Header
         isDone={isDone}
         tasksLength={allTasksForExport.length}
@@ -238,13 +238,15 @@ function TaskShredderApp({ hasGoogle }: { hasGoogle: boolean }) {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                className="h-full flex flex-col items-center justify-center text-zinc-400 border-2 border-dashed border-zinc-200 rounded-2xl p-12 text-center"
+                className="h-full flex flex-col items-center justify-center text-zinc-400 border border-dashed border-zinc-300 rounded-2xl p-12 text-center bg-white/40"
               >
-                <Target size={48} strokeWidth={1} className="mb-4 text-zinc-300" />
-                <p className="text-lg font-medium text-zinc-500 mb-2">
+                <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-white shadow-sm ring-1 ring-zinc-200/80">
+                  <Target size={30} strokeWidth={1.5} className="text-indigo-500" />
+                </div>
+                <p className="text-lg font-semibold text-zinc-600 mb-2">
                   準備好擊碎拖延症了嗎？
                 </p>
-                <p className="text-sm">
+                <p className="text-sm max-w-xs leading-relaxed">
                   在左側輸入文字或用語音，AI 會自動幫你把巨大任務切成小碎片。
                 </p>
               </motion.div>
@@ -259,13 +261,13 @@ function TaskShredderApp({ hasGoogle }: { hasGoogle: boolean }) {
                 className="h-full flex flex-col items-center justify-center space-y-6"
               >
                 {/* Shimmer Skeleton */}
-                <div className="w-full max-w-md space-y-4">
-                  <div className="h-4 bg-zinc-200 rounded animate-pulse w-3/4 mx-auto" />
+                <div className="w-full max-w-md space-y-4 rounded-2xl border border-zinc-200/80 bg-white p-6 shadow-sm">
+                  <div className="h-4 bg-zinc-100 rounded-md animate-pulse w-3/4 mx-auto" />
                   <div className="space-y-3">
                     {[0, 1, 2].map((i) => (
                       <div key={i} className="space-y-2">
-                        <div className="h-3 bg-zinc-200 rounded animate-pulse w-full" />
-                        <div className="h-3 bg-zinc-200 rounded animate-pulse w-5/6" />
+                        <div className="h-3 bg-zinc-100 rounded-md animate-pulse w-full" />
+                        <div className="h-3 bg-zinc-100 rounded-md animate-pulse w-5/6" />
                       </div>
                     ))}
                   </div>
@@ -274,7 +276,7 @@ function TaskShredderApp({ hasGoogle }: { hasGoogle: boolean }) {
                 {/* Progress Steps */}
                 <div className="flex flex-col items-center gap-3">
                   <div className="flex items-center gap-2">
-                    <Loader2 size={18} className="animate-spin text-zinc-600" />
+                    <Loader2 size={18} className="animate-spin text-indigo-600" />
                     <span className="text-zinc-700 font-medium">
                       {processingStep ? PROCESSING_STEP_LABELS[processingStep] : '處理中...'}
                     </span>
@@ -287,11 +289,11 @@ function TaskShredderApp({ hasGoogle }: { hasGoogle: boolean }) {
                             processingStep === step ||
                             (processingStep === 'syncing' && step === 'breaking-down') ||
                             (processingStep === null && idx === 0)
-                              ? 'bg-black'
+                              ? 'bg-indigo-600'
                               : processingStep &&
                                 ['breaking-down', 'syncing'].includes(processingStep) &&
                                 step === 'analyzing'
-                              ? 'bg-green-500'
+                              ? 'bg-emerald-500'
                               : 'bg-zinc-300'
                           }`}
                         />
