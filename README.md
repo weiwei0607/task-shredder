@@ -1,169 +1,104 @@
-# ✂️ Task Shredder — AI 任務斷捨離助手
+# Task Shredder — AI 任務斷捨離助手
 
-> 不用寫 to-do list，直接「倒垃圾」給 AI，讓它幫你整理成可執行的任務
+**Live Demo: [task-shredder-weiwei.vercel.app](https://task-shredder-weiwei.vercel.app)**
 
-<p align="center">
-  <img src="https://img.shields.io/badge/React_Native-0.81-61DAFB?logo=react" />
-  <img src="https://img.shields.io/badge/Expo-54.x-000020?logo=expo" />
-  <img src="https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript" />
-  <img src="https://img.shields.io/badge/AI-Next.js_API-000000?logo=next.js" />
-</p>
-
-<p align="center">
-  <b>你的大腦是 CPU 不是硬碟 — 把混亂的思緒「倒」出來，AI 幫你結構化</b>
-</p>
+> **EN Summary**: Task Shredder turns a chaotic brain dump into an actionable task plan. Paste messy notes (or speak them), and Gemini AI extracts, categorizes, and breaks goals into concrete subtasks — or asks clarifying questions first when your plan is too vague. Local-first (no account needed), with one-click export to Google Tasks, Google Calendar, Notion, or `.ics`. Built with Next.js 16, React 19, TypeScript, and the Gemini API; deployed on Vercel with tests and CI.
 
 ---
 
-## 🎯 解決什麼問題？
+## 解決什麼問題
 
-| 場景 | 傳統做法 | Task Shredder 做法 |
-|------|---------|-------------------|
-| 腦中一堆待辦事項 | 強迫自己分類、排優先級 | **直接全部倒進去**，AI 幫你分類 |
-| 目標太模糊（「我想變健康」）| 不知道從哪開始 | AI 自動生成**澄清問題**，幫你具體化 |
-| 任務太大（「寫畢業論文」）| 拖延症發作 | AI 自動拆解成**可執行的子任務** |
-| 斷捨離房間 | 看著雜物堆發呆 | 拍照/描述 → AI 生成**分類+處理順序** |
+大腦裡的待辦事項從來不是整齊的清單——它是一團混雜著焦慮、模糊目標和瑣事的思緒。傳統 to-do app 要求你先「整理好」才能輸入，但**整理的認知負擔正是拖延的根源**。Task Shredder 反過來做：你只管倒垃圾，AI 負責分類、拆解、排順序。
 
----
+## 功能一覽
 
-## ✨ 核心體驗
+**倒進去就好**
+- 文字自由傾倒：開會紀錄、抱怨、模糊願望，原樣貼上即可
+- 語音輸入：用講的也可以（Web Speech API，支援中文）
 
-### 🧠 Brain Dump（腦力傾倒）
+**AI 幫你想清楚**
+- 三種拆解模式：
+  - `Auto 無情切碎` — 大目標直接拆成「今天就能做」的子任務
+  - `Ask 先問清楚` — 目標太模糊時，AI 扮演教練提出 2-3 個犀利的釐清問題（附選擇題選項，點擊即答）
+  - `None 只整理不拆` — 忠實提取待辦，不擅自展開
+- 每次分析同時產出重點摘要與 Mermaid 心智圖
 
-```
-你輸入：
-「我想整理房間但不知道從哪開始，
-  還有下週要交報告，
-  然後我覺得自己最近太胖想減肥，
-  對了我媽生日要到了還沒買禮物...」
+**留住成果，接回你的工作流**
+- 任務板：子任務勾選、完成率追蹤、行內編輯/刪除/新增
+- 便條紙面板：快速記下零散小事
+- 歷史紀錄：自動保存最近 50 次 brain dump；同一任務出現 3 次以上會提示「這也許該變成習慣」
+- 一鍵同步：Google Tasks + Google Calendar、Notion 資料庫，或下載 `.ics` 匯入任何行事曆
 
-AI 輸出：
-┌─────────────────────────────────────┐
-│  📋 自動分類結果                      │
-├─────────────────────────────────────┤
-│  🏠 生活整理                          │
-│    □ 整理房間（AI 建議：先從「丟垃圾」  │
-│      開始，再分類，最後歸位）          │
-│      └─ □ 丟掉明顯的垃圾              │
-│      └─ □ 把物品分類（保留/丟掉/捐贈）  │
-│      └─ □ 歸位整理                    │
-├─────────────────────────────────────┤
-│  💼 工作學業                          │
-│    □ 下週報告（AI 建議：需要澄清）     │
-│      ❓ 報告主題是什麼？               │
-│      ❓ 需要多少頁？                   │
-│      ❓ 有沒有參考資料？               │
-├─────────────────────────────────────┤
-│  💪 健康目標                          │
-│    □ 減肥計畫（AI 建議：設定 SMART 目標）│
-│      └─ □ 本週運動 3 次，每次 30 分鐘   │
-│      └─ □ 記錄每日飲食                 │
-├─────────────────────────────────────┤
-│  🎁 人際關係                          │
-│    □ 媽媽生日禮物                     │
-│      └─ □ 本週日前選定禮物並購買       │
-└─────────────────────────────────────┘
-```
+## 產品決策（為什麼是這樣設計）
 
-### 🔍 澄清式互動（Clarification）
+- **為什麼有 Ask 模式**：模糊輸入直接拆解只會產出「看起來很忙的廢物任務」。與其讓 AI 瞎猜，不如讓它先當教練問對問題——用戶的回答會併入原始輸入重新拆解，產出的子任務品質完全不同。
+- **為什麼 local-first**：所有任務、歷史、設定都存在瀏覽器 localStorage，無需註冊、零後端資料庫。第一次造訪就能用，也沒有「我的待辦被存在誰家伺服器」的隱私疑慮。跨分頁同步用 BroadcastChannel / storage event 處理。
+- **為什麼選 Gemini 2.5 Flash Lite**：這是即時互動工具，用戶等不了 10 秒。Flash Lite 在結構化 JSON 輸出品質足夠的前提下，把延遲和成本壓到最低——對一個無營利的公開 demo 來說，成本直接決定它能不能一直開著。
+- **為什麼不自己建任務生態**：拆解完的任務最終要活在用戶已有的工具裡。所以做的是匯出（Google Tasks / Calendar / Notion / .ics），而不是再造一個要他們每天回來打開的 app。
+- **上線後才學到的**：公開部署後補上了每 IP 每分鐘 10 次 rate limit、15 秒逾時、輸入長度上限、prompt injection 防護（`<user_input>` 標籤隔離 + system prompt 最高指令）、Mermaid SVG 消毒（`securityLevel: 'antiscript'`），以及全站安全標頭（CSP、X-Frame-Options 等）。
 
-當目標模糊時，AI 不會直接猜，而是**問你問題**：
-
-```
-AI：「你說想『整理房間』，請問是哪種整理？"
-
-選項：
-○ 大掃除（徹底清理）
-○ 斷捨離（丟東西）
-○ 只是歸位（東西放回原位）
-○ 重新布置（換風格）
-
-你的選擇會影響 AI 生成的任務拆解方式。
-```
-
----
-
-## 🏗️ 產品設計架構
-
-```
-┌─────────────────────────────────────────────┐
-│              用戶輸入階段                      │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  │
-│  │ 文字輸入  │  │ 語音輸入  │  │ 拍照輸入  │  │
-│  │ 自由傾倒  │  │ 說出來   │  │ OCR 辨識 │  │
-│  └────┬─────┘  └────┬─────┘  └────┬─────┘  │
-│       └─────────────┬─────────────┘         │
-│                     ↓                       │
-│  ┌─────────────────────────────────────┐    │
-│  │     AI 分析層（Next.js API）          │    │
-│  │  • 意圖分類（生活/工作/健康/人際）    │    │
-│  │  • 任務拆解（大目標 → 子任務）        │    │
-│  │  • 模糊度檢測 → 生成澄清問題         │    │
-│  │  • 優先級建議（時間/重要性）          │    │
-│  └────────────────┬────────────────────┘    │
-│                   ↓                         │
-│  ┌─────────────────────────────────────┐    │
-│  │     任務板（Task Board）               │    │
-│  │  • 分類任務卡（可摺疊）               │    │
-│  │  • 子任務勾選（進度追蹤）             │    │
-│  │  • 完成動畫（Confetti 🎉）            │    │
-│  └─────────────────────────────────────┘    │
-└─────────────────────────────────────────────┘
-```
-
----
-
-## 🛠️ 技術棧
+## 技術棧
 
 | 層 | 技術 |
 |----|------|
-| **Mobile App** | React Native + Expo + TypeScript |
-| **狀態管理** | React Hooks + AsyncStorage |
-| **AI 後端** | Next.js API Route（/api/analyze）|
-| **AI 模型** | OpenAI GPT-4o / Claude（結構化輸出）|
-| **動畫** | React Native Animated + Lottie |
-| **圖標** | @expo/vector-icons |
+| 框架 | Next.js 16 (App Router) + React 19 + TypeScript |
+| AI | Google Gemini 2.5 Flash Lite（`@google/genai`，強制 JSON 輸出）|
+| 樣式 / 動畫 | Tailwind CSS 4, Framer Motion, Sonner |
+| 視覺化 | Mermaid.js 心智圖 |
+| 整合 | Google Tasks/Calendar API（OAuth）、Notion API、`ics` |
+| 儲存 | 瀏覽器 localStorage（local-first，無後端 DB）|
+| 測試 / CI | Vitest + Testing Library，GitHub Actions |
+| 部署 | Vercel（含 Vercel Analytics）|
 
----
+## 架構
 
-## 🚀 快速開始
-
-```bash
-# 1. 安裝依賴
-cd task-shredder-app
-npm install
-
-# 2. 設定 AI API（複製範例檔案）
-cp .env.example .env
-# 編輯 .env，填入 OPENAI_API_KEY
-
-# 3. 啟動 Expo
-npx expo start
-
-# 掃描 QR Code 用手機預覽，或按 i / a 開模擬器
+```
+瀏覽器（React，localStorage 持久化）
+   │  POST /api/analyze { text, mode }
+   ▼
+Next.js API Route ── rate limit / 驗證 / 15s timeout
+   │  system prompt（依 mode 切換）+ <user_input> 隔離
+   ▼
+Gemini 2.5 Flash Lite ── 強制 application/json
+   │  { tasks, summary, mindmap, clarificationQuestions }
+   ▼
+前端渲染：任務板 / 心智圖 / 釐清問卷
+   └─（可選）POST /api/google → Google Tasks + Calendar
+             POST /api/notion → Notion 資料庫
+             或直接下載 .ics
 ```
 
----
+API key 只存在 server-side route，前端永不接觸。
 
-## 🗺️ 產品路線圖
+## 本地運行
 
-- [x] **Phase 1: Brain Dump MVP**
-  - [x] 文字輸入 + AI 分類拆解
-  - [x] 澄清式互動（Clarification Form）
-  - [x] 任務板（子任務勾選 + 進度）
+```bash
+git clone https://github.com/weiwei0607/task-shredder.git
+cd task-shredder
+npm install
 
-- [ ] **Phase 2: 智能增強**
-  - [ ] 語音輸入（語音轉文字）
-  - [ ] 拍照輸入（OCR 辨識雜物/文件）
-  - [ ] 智能提醒（「這個任務已經拖了 3 天」）
+cp .env.example .env
+# 必填：GEMINI_API_KEY（https://aistudio.google.com/app/apikey）
+# 選填：NOTION_TOKEN / NOTION_MOUSE_DB_ID（Notion 同步）
+# 選填：NEXT_PUBLIC_GOOGLE_CLIENT_ID（Google Tasks/Calendar 同步）
 
-- [ ] **Phase 3: 協作與習慣**
-  - [ ] 與他人共享任務（家庭/團隊）
-  - [ ] 習慣追蹤（每日重複任務的連續天數）
-  - [ ] 數據洞察（「你通常在週二最有生產力」）
+npm run dev   # http://localhost:3000
+```
 
----
+## 測試與 CI
 
-## 📝 License
+```bash
+npx vitest run     # 單元測試（API route、utils）
+npm run lint       # ESLint
+npm run build      # production build
+```
 
-MIT License © 2026
+GitHub Actions（`.github/workflows/ci.yml`）在每次 push / PR 執行：lint → type check (`tsc --noEmit`) → vitest → build，全綠才合併。
+
+## 誠實聲明
+
+這是個人 side project，為解決自己（和家人）的拖延問題而建，目前使用者就是身邊的人。沒有成長數據可吹噓——但它是一個真實部署、持續維護、有測試和 CI 的完整產品。
+
+## License
+
+MIT © 2026 WeiWei
