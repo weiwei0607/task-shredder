@@ -94,9 +94,14 @@ function TaskShredderApp({ hasGoogle }: { hasGoogle: boolean }) {
     setIsSyncing(true);
     setNotionError(null);
     try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      const notionRouteSecret = process.env.NEXT_PUBLIC_NOTION_ROUTE_SECRET;
+      if (notionRouteSecret) {
+        headers['Authorization'] = `Bearer ${notionRouteSecret}`;
+      }
       const res = await fetch('/api/notion', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ tasks: allTasksForExport }),
       });
       const data = await res.json();
