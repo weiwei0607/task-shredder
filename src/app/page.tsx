@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { useTaskProcessor } from '../hooks/useTaskProcessor';
 
 import Header from '../components/Header';
+import Splash from '../components/Splash';
 import BrainDumpPanel from '../components/BrainDumpPanel';
 import StickyNotesPanel from '../components/StickyNotesPanel';
 import ClarificationForm from '../components/ClarificationForm';
@@ -170,6 +171,7 @@ function TaskShredderApp({ hasGoogle }: { hasGoogle: boolean }) {
 
   return (
     <div className="min-h-screen bg-[#fafafa] text-zinc-800 font-sans pb-20">
+      <Splash />
       <Header
         isDone={isDone}
         tasksLength={allTasksForExport.length}

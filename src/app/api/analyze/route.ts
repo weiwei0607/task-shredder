@@ -165,6 +165,9 @@ export async function POST(req: Request) {
       config: {
         systemInstruction: getSystemPrompt(mode as Mode),
         responseMimeType: 'application/json',
+        // 關掉 2.5 系列預設「思考」，否則思考吃光 token、輸出被截斷 → JSON 不完整
+        thinkingConfig: { thinkingBudget: 0 },
+        maxOutputTokens: 4096,
       },
     });
 
@@ -175,9 +178,21 @@ export async function POST(req: Request) {
     const response = await Promise.race([geminiPromise, timeoutPromise]);
 
     const resultText = response.text || '{}';
+    // 容錯：去掉模型偶爾包上的 ```json 圍欄，或抓出第一個 {...} 區塊
+    const cleaned = (() => {
+      let s = resultText.trim();
+      const fence = s.match(/```(?:json)?\s*([\s\S]*?)```/i);
+      if (fence) s = fence[1].trim();
+      if (!s.startsWith('{')) {
+        const first = s.indexOf('{');
+        const last = s.lastIndexOf('}');
+        if (first !== -1 && last > first) s = s.slice(first, last + 1);
+      }
+      return s;
+    })();
     let data;
     try {
-      data = JSON.parse(resultText);
+      data = JSON.parse(cleaned);
       if (!data.tasks || !Array.isArray(data.tasks)) data.tasks = [];
       if (!data.summary || !Array.isArray(data.summary)) data.summary = [];
       if (!data.clarificationQuestions || !Array.isArray(data.clarificationQuestions)) {
